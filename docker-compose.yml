@@ -7,6 +7,9 @@ services:
       - db
     environment:
       - DATABASE_URL=postgres://rappeluser:rappelpass@db:5432/rappeldb?sslmode=disable
+    networks:
+      - rappelconso-network
+      - caddy-network-rappelconso
 
   db:
     image: postgres:15
@@ -20,7 +23,14 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - rappelconso-network
 
+networks:
+  rappelconso-network:
+    driver: bridge
+  caddy-network-rappelconso:
+    driver: bridge
 
 volumes:
   pgdata:

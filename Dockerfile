@@ -23,7 +23,6 @@ WORKDIR /app
 # Copy the built binary and static assets
 COPY --from=builder /app/rappelconsommation .
 COPY templates/ templates/
-COPY static/ static/
 
 # Run the app
 CMD ["./rappelconsommation"]

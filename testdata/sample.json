@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "rappel_guid": "abc-123",
+    "numero_fiche": "2024-01-0001",
+    "numero_version": 1,
+    "nature_juridique_rappel": "volontaire",
+    "categorie_produit": "alimentation",
+    "sous_categorie_produit": "chocolat",
+    "marque_produit": "TestBrand",
+    "modeles_ou_references": "Ref001",
+    "identification_produits": "Batch42",
+    "conditionnements": "boite",
+    "date_debut_commercialisation": "2024-01-01",
+    "date_date_fin_commercialisation": "2024-02-01",
+    "date_limite_de_consommation": null,
+    "temperature_conservation": "",
+    "marque_salubrite": null,
+    "informations_complementaires": "",
+    "zone_geographique_de_vente": "France",
+    "distributeurs": "TestDistributor",
+    "motif_rappel": "Erreur étiquetage",
+    "risques_encourus": "Aucun",
+    "preconisations_sanitaires": "",
+    "description_complementaire_risque": "",
+    "conduites_a_tenir_par_le_consommateur": "Ne pas consommer",
+    "numero_contact": "",
+    "modalites_de_compensation": "",
+    "date_de_fin_de_la_procedure_de_rappel": "",
+    "informations_complementaires_publiques": "",
+    "liens_vers_les_images": "",
+    "lien_vers_la_liste_des_produits": null,
+    "lien_vers_la_liste_des_distributeurs": null,
+    "lien_vers_affichette_pdf": "",
+    "lien_vers_la_fiche_rappel": "",
+    "date_publication": "2024-01-10T12:00:00+00:00",
+    "libelle": "Test Recall",
+    "_links": {
+      
+    }
+  }
+]

@@ -1,0 +1,26 @@
+services:
+  rappel-api:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://rappeluser:rappelpass@db:5432/rappeldb?sslmode=disable
+
+  db:
+    image: postgres:15
+    container_name: rappelconso-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rappeluser
+      POSTGRES_PASSWORD: rappelpass
+      POSTGRES_DB: rappeldb
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+
+volumes:
+  pgdata:

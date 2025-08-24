@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🛡️ Product Recalls — Clean</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* =====================================
+       Qonto‑ish: calm, clear, trustworthy
+       – Low-ink UI, generous whitespace
+       – Subtle borders, tiny shadows
+       – Accessible focus rings
+       ===================================== */
+
+    :root {
+      /* Light theme */
+      --bg: #f7f7fb;            /* page */
+      --surface: #ffffff;       /* cards */
+      --ink: #101828;           /* primary text */
+      --muted: #667085;         /* secondary text */
+      --border: #EAECF0;        /* lines */
+      --brand: #6B4EFF;         /* accent (violet) */
+      --brand-ink: #3E2FE3;     /* darker accent */
+      --radius: 16px;           /* large radii */
+      --shadow-1: 0 1px 2px rgba(16,24,40,0.06);
+      --shadow-2: 0 4px 10px rgba(16,24,40,0.06);
+      --ring: 0 0 0 4px rgba(107,78,255,0.15);
+    }
+
+    html[data-theme='dark'] {
+      --bg: #0b0d12;
+      --surface: #11141b;
+      --ink: #e6e7ea;
+      --muted: #9aa3b2;
+      --border: #1f2430;
+      --brand: #8B7BFF;
+      --brand-ink: #b0a7ff;
+      --shadow-1: 0 1px 2px rgba(0,0,0,0.35);
+      --shadow-2: 0 6px 16px rgba(0,0,0,0.35);
+      --ring: 0 0 0 4px rgba(139,123,255,0.2);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container { max-width: 1120px; margin: 0 auto; padding: 32px 24px; }
+
+    /* Header */
+    .header { display:flex; align-items:center; justify-content:space-between; gap: 16px; margin-bottom: 20px; }
+    h1 { font-size: clamp(24px, 3.6vw, 36px); line-height: 1.2; margin: 0; letter-spacing: -0.01em; font-weight: 700; color: var(--ink); }
+    .sub { color: var(--muted); font-weight: 500; }
+
+    .toggle { display:flex; align-items:center; gap:10px; color: var(--muted); font-weight:600; }
+    .switch { position: relative; width: 48px; height: 28px; }
+    .switch input{opacity:0;width:0;height:0}
+    .slider {position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;border-radius:999px;background: #e7e9ee; transition:.2s}
+    .slider:before{content:"";position:absolute;height:20px;width:20px;left:4px;top:4px;border-radius:50%;background:#fff;box-shadow: var(--shadow-1); transition:.2s}
+    input:checked + .slider{background:#2a2f3a}
+    input:checked + .slider:before{transform:translateX(20px)}
+
+    /* Filters */
+    .filters {
+      position: sticky; top: 8px; z-index: 20;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 20px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; box-shadow: var(--shadow-1);
+      margin-bottom: 28px;
+    }
+    .filter-group { display:flex; flex-direction:column; gap:8px; }
+    .filters label { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+
+    .input, .date {
+      width: 100%; height: 42px;
+      padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border);
+      background: #fff; color: var(--ink);
+      outline: none; transition: border-color .15s, box-shadow .15s;
+      font-weight: 500;
+    }
+    .input:focus, .date:focus { border-color: var(--brand); box-shadow: var(--ring); }
+
+    .dropdown-search { position: relative; }
+    .dropdown-list {
+      position: absolute; inset-inline: 0; top: calc(100% + 6px);
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      box-shadow: var(--shadow-2);
+      max-height: 260px; overflow: auto; padding: 6px; margin: 0; list-style: none; z-index: 40;
+    }
+    .dropdown-list[hidden] { display:none; }
+    .dropdown-list li { padding: 10px 12px; border-radius: 8px; cursor:pointer; color: var(--ink); font-weight: 500; }
+    .dropdown-list li:hover { background: #f2f4f7; }
+    html[data-theme='dark'] .dropdown-list li:hover { background: #1a1e26; }
+
+    /* Grid & Cards */
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow:hidden; box-shadow: var(--shadow-1); transition: transform .15s ease, box-shadow .15s ease; }
+    .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+
+    .image { width: 100%; aspect-ratio: 16/9; object-fit: cover; display:block; background:#f2f4f7; }
+    .image.empty { display:flex; align-items:center; justify-content:center; color:#98a2b3; font-size: 36px; }
+
+    .content { padding: 16px 16px 18px; display:grid; gap: 10px; }
+    .h2 { font-size: 18px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+
+    .badges { display:flex; flex-wrap:wrap; gap: 8px; }
+    .badge { padding: 6px 10px; border-radius: 999px; background: #f2f4f7; color:#344054; border: 1px solid var(--border); font-weight: 600; font-size: 12px; }
+    .badge.brand { background: #EEF4FF; color:#3538CD; border-color:#E0EAFF; }
+    html[data-theme='dark'] .badge { background:#151922; color:#d0d5dd; border-color:#202635; }
+
+    .meta { display:grid; gap:6px; color: var(--muted); font-weight: 500; }
+    .meta p { margin: 0; }
+    .meta strong { color: var(--ink); }
+
+    .links { display:flex; gap: 12px; margin-top: 4px; }
+    .link { color: var(--brand); font-weight: 650; text-decoration: none; border-bottom: 1px solid transparent; }
+    .link:hover { border-bottom-color: var(--brand); }
+
+    .pagination { display:flex; align-items:center; justify-content:center; gap: 16px; margin-top: 28px; font-weight: 600; }
+    .pagination a { color: var(--brand); text-decoration:none; padding: 8px 12px; border-radius: 10px; border:1px solid var(--border); background: var(--surface); }
+    .pagination a:hover { box-shadow: var(--shadow-1); }
+
+    @media (max-width: 640px) {
+      .container { padding: 20px 16px; }
+      .filters { padding: 12px; border-radius: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <h1>🛡️ Product Recalls</h1>
+        <div class="sub">Données officielles — mises à jour régulièrement</div>
+      </div>
+      <label class="toggle" title="Toggle light/dark">
+        <span>Thème</span>
+        <span class="switch"><input id="themeToggle" type="checkbox" aria-label="toggle theme"><span class="slider"></span></span>
+      </label>
+    </header>
+
+    <form method="GET" action="/" class="filters" aria-label="Filtres de recherche">
+      <div class="filter-group">
+        <label for="categorySearch">Catégorie</label>
+        <div class="dropdown-search">
+          <input class="input" type="text" id="categorySearch" placeholder="Rechercher une catégorie" autocomplete="off" value="{{.SelectedCategory}}" />
+          <ul id="categoryDropdown" class="dropdown-list" hidden>
+            <li data-value="">Toutes les catégories</li>
+            {{range .Categories}}
+            <li data-value="{{.}}">{{.}}</li>
+            {{end}}
+          </ul>
+          <input type="hidden" name="category" id="selectedCategory" value="{{.SelectedCategory}}" />
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="riskSearch">Risque</label>
+        <div class="dropdown-search">
+          <input class="input" type="text" id="riskSearch" placeholder="Rechercher un risque" autocomplete="off" value="{{.SelectedRisk}}" />
+          <ul id="riskDropdown" class="dropdown-list" hidden>
+            <li data-value="">Tous les risques</li>
+            {{range .Risks}}
+            <li data-value="{{.}}">{{.}}</li>
+            {{end}}
+          </ul>
+          <input type="hidden" name="risk" id="selectedRisk" value="{{.SelectedRisk}}" />
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="zoneSearch">Zone</label>
+        <div class="dropdown-search">
+          <input class="input" type="text" id="zoneSearch" placeholder="Rechercher une zone" autocomplete="off" value="{{.SelectedZone}}" />
+          <ul id="zoneDropdown" class="dropdown-list" hidden>
+            <li data-value="">Toutes les zones</li>
+            {{range .Zones}}
+            <li data-value="{{.}}">{{.}}</li>
+            {{end}}
+          </ul>
+          <input type="hidden" name="zone" id="selectedZone" value="{{.SelectedZone}}" />
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="brandSearch">Marque</label>
+        <div class="dropdown-search">
+          <input class="input" type="text" id="brandSearch" placeholder="Rechercher une marque" autocomplete="off" value="{{.SelectedBrand}}" />
+          <ul id="brandDropdown" class="dropdown-list" hidden>
+            <li data-value="">Toutes les marques</li>
+            {{range .Brands}}
+            <li data-value="{{.}}">{{.}}</li>
+            {{end}}
+          </ul>
+          <input type="hidden" name="brand" id="selectedBrand" value="{{.SelectedBrand}}" />
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="dateStart">Date début</label>
+        <input class="date" id="dateStart" name="dateStart" type="date" value="{{.DateStart}}" onchange="this.form.submit()" />
+      </div>
+
+      <div class="filter-group">
+        <label for="dateEnd">Date fin</label>
+        <input class="date" id="dateEnd" name="dateEnd" type="date" value="{{.DateEnd}}" onchange="this.form.submit()" />
+      </div>
+    </form>
+
+    <main class="grid" role="list">
+      {{range .Recalls}}
+      <article class="card" role="listitem">
+        {{ if and .ImageURLs (ne (index .ImageURLs 0) "") }}
+        <img class="image" src="{{ index .ImageURLs 0 }}" alt="Image produit" loading="lazy">
+        {{ else }}
+        <div class="image empty" aria-label="Pas d'image disponible">📦</div>
+        {{ end }}
+        <div class="content">
+          <h2 class="h2">{{.Libelle}}</h2>
+          <div class="badges">
+            <span class="badge">{{.CategorieProduit}}</span>
+            <span class="badge brand">{{.MarqueProduit}}</span>
+          </div>
+          <section class="meta">
+            <p><strong>📅</strong> {{.DatePublication}}</p>
+            {{ if .RisquesEncourus }}<p><strong>⚠️</strong> {{.RisquesEncourus}}</p>{{ end }}
+            {{ if .MotifRappel }}<p><strong>💬</strong> {{.MotifRappel}}</p>{{ end }}
+            {{ if .ConduitesATenirParLeConsommateur }}<p><strong>🧼 À faire:</strong> {{ .ConduitesATenirParLeConsommateur }}</p>{{ end }}
+            {{ if .ModalitesDeCompensation }}<p><strong>💸 Compensation:</strong> {{ .ModalitesDeCompensation }}</p>{{ end }}
+            {{ if .Distributeurs }}<p><strong>🏪 Distributeur:</strong> {{ .Distributeurs }}</p>{{ end }}
+            <p><strong>🗺️ Zone:</strong> {{ if .ZoneGeographiqueDeVente }}{{ .ZoneGeographiqueDeVente }}{{ else }}non précisé{{ end }}</p>
+            {{ if .IdentificationProduits }}<p><strong>🧾 Code produit:</strong> {{ .IdentificationProduits }}</p>{{ end }}
+            {{ if .ModelesOuReferences }}<p><strong>🆔 Référence:</strong> {{ .ModelesOuReferences }}</p>{{ end }}
+          </section>
+          <nav class="links" aria-label="Liens vers documents PDF et fiches">
+            {{ if .LienVersAffichettePDF }}<a class="link" href="{{.LienVersAffichettePDF}}" target="_blank" rel="noopener noreferrer">PDF</a>{{ end }}
+            {{ if .LienVersLaFicheRappel }}<a class="link" href="{{.LienVersLaFicheRappel}}" target="_blank" rel="noopener noreferrer">Fiche</a>{{ end }}
+          </nav>
+        </div>
+      </article>
+      {{end}}
+    </main>
+
+    <nav class="pagination" aria-label="Navigation entre pages">
+      {{ if gt .Page 1 }}
+        <a href="/?page={{minus .Page}}">← Précédent</a>
+      {{ end }}
+      <span>Page {{ .Page }}</span>
+      {{ if ge (len .Recalls) 20 }}
+        <a href="/?page={{add .Page}}">Suivant →</a>
+      {{ end }}
+    </nav>
+  </div>
+
+  <script>
+    // Theme toggle persistence
+    const html = document.documentElement;
+    const saved = localStorage.getItem('theme-simple');
+    if (saved) html.setAttribute('data-theme', saved);
+    const toggle = document.getElementById('themeToggle');
+    toggle.checked = html.getAttribute('data-theme') === 'dark';
+    toggle.addEventListener('change', () => {
+      const next = toggle.checked ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme-simple', next);
+    });
+
+    // Searchable dropdowns (unchanged behavior)
+    function setupSearchableDropdown(searchInputId, dropdownId, hiddenInputId) {
+      const input = document.getElementById(searchInputId);
+      const list = document.getElementById(dropdownId);
+      const hiddenInput = document.getElementById(hiddenInputId);
+
+      input.addEventListener('input', () => {
+        const filter = input.value.toLowerCase();
+        list.hidden = false;
+        Array.from(list.children).forEach(li => {
+          const text = li.textContent.toLowerCase();
+          li.style.display = text.includes(filter) ? '' : 'none';
+        });
+      });
+
+      input.addEventListener('focus', () => { list.hidden = false; });
+      input.addEventListener('blur', () => { setTimeout(() => list.hidden = true, 120); });
+
+      list.addEventListener('click', (e) => {
+        if (e.target.tagName === 'LI') {
+          const value = e.target.getAttribute('data-value');
+          const label = e.target.textContent;
+          input.value = label;
+          hiddenInput.value = value;
+          list.hidden = true;
+          input.form.submit();
+        }
+      });
+    }
+
+    setupSearchableDropdown('categorySearch','categoryDropdown','selectedCategory');
+    setupSearchableDropdown('riskSearch','riskDropdown','selectedRisk');
+    setupSearchableDropdown('zoneSearch','zoneDropdown','selectedZone');
+    setupSearchableDropdown('brandSearch','brandDropdown','selectedBrand');
+  </script>
+</body>
+</html>

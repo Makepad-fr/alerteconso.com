@@ -2,7 +2,7 @@ services:
   rappel-api:
     build: .
     ports:
-      - "8080:8080"
+      - "9092:8080"
     depends_on:
       - db
     environment:

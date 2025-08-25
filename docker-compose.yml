@@ -1,36 +1,58 @@
 services:
-  rappel-api:
+  alerteconso-api-dev:
+    hostname: alerteconso-app
     build: .
+    image: yagcikaan/alerteconso:${TAG:-latest}
+    container_name: alerteconso-api
+    restart: unless-stopped
+    profiles: ["dev"]
     ports:
       - "9092:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
-      - DATABASE_URL=postgres://rappeluser:rappelpass@db:5432/rappeldb?sslmode=disable
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=disable
     networks:
-      - rappelconso-network
-      - caddy-network-rappelconso
+      - alerteconso-network
+
+  alerteconso-api-prod:
+    hostname: alerteconso-app
+    build: .
+    image: yagcikaan/alerteconso:${TAG:-latest}
+    container_name: alerteconso-api
+    restart: unless-stopped
+    profiles: ["prod"]
+    ports:
+      - "9092:8080"
+    environment:
+      # TODO: Enable ssl mode in production
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=${SSL_MODE:-enable}
+    networks:
+      - caddy-network-alerteconso
 
   db:
+    hostname: ${POSTGRES_HOST}
     image: postgres:17
-    container_name: rappelconso-db
+    container_name: alerteconso-db
     restart: unless-stopped
+    profiles: ["dev"]
     environment:
-      POSTGRES_USER: rappeluser
-      POSTGRES_PASSWORD: rappelpass
-      POSTGRES_DB: rappeldb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - rappelconso-network
+      - alerteconso-network
 
 networks:
-  rappelconso-network:
+  alerteconso-network:
     driver: bridge
-  caddy-network-rappelconso:
+  caddy-network-alerteconso:
     driver: bridge
 
 volumes:

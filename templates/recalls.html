@@ -3,18 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>🛡️ Product Recalls — Clean</title>
+  <title>Product Recalls</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    /* =====================================
-       Qonto‑ish: calm, clear, trustworthy
-       – Low-ink UI, generous whitespace
-       – Subtle borders, tiny shadows
-       – Accessible focus rings
-       ===================================== */
+  
 
     :root {
-      /* Light theme */
       --bg: #f7f7fb;            /* page */
       --surface: #ffffff;       /* cards */
       --ink: #101828;           /* primary text */
@@ -139,8 +133,8 @@
   <div class="container">
     <header class="header">
       <div>
-        <h1>🛡️ Product Recalls</h1>
-        <div class="sub">Données officielles — mises à jour régulièrement</div>
+        <h1>Product Recalls</h1>
+        <div class="sub">Données officielles, mises à jour régulièrement</div>
       </div>
       <label class="toggle" title="Toggle light/dark">
         <span>Thème</span>
@@ -231,15 +225,15 @@
             <span class="badge brand">{{.MarqueProduit}}</span>
           </div>
           <section class="meta">
-            <p><strong>📅</strong> {{.DatePublication}}</p>
-            {{ if .RisquesEncourus }}<p><strong>⚠️</strong> {{.RisquesEncourus}}</p>{{ end }}
-            {{ if .MotifRappel }}<p><strong>💬</strong> {{.MotifRappel}}</p>{{ end }}
-            {{ if .ConduitesATenirParLeConsommateur }}<p><strong>🧼 À faire:</strong> {{ .ConduitesATenirParLeConsommateur }}</p>{{ end }}
-            {{ if .ModalitesDeCompensation }}<p><strong>💸 Compensation:</strong> {{ .ModalitesDeCompensation }}</p>{{ end }}
-            {{ if .Distributeurs }}<p><strong>🏪 Distributeur:</strong> {{ .Distributeurs }}</p>{{ end }}
-            <p><strong>🗺️ Zone:</strong> {{ if .ZoneGeographiqueDeVente }}{{ .ZoneGeographiqueDeVente }}{{ else }}non précisé{{ end }}</p>
-            {{ if .IdentificationProduits }}<p><strong>🧾 Code produit:</strong> {{ .IdentificationProduits }}</p>{{ end }}
-            {{ if .ModelesOuReferences }}<p><strong>🆔 Référence:</strong> {{ .ModelesOuReferences }}</p>{{ end }}
+            <p><strong>Date Publication: </strong> {{.DatePublication}}</p>
+            {{ if .RisquesEncourus }}<p><strong>Risques: </strong> {{.RisquesEncourus}}</p>{{ end }}
+            {{ if .MotifRappel }}<p><strong>Motif Rappel:</strong> {{.MotifRappel}}</p>{{ end }}
+            {{ if .ConduitesATenirParLeConsommateur }}<p><strong>À faire:</strong> {{ .ConduitesATenirParLeConsommateur }}</p>{{ end }}
+            {{ if .ModalitesDeCompensation }}<p><strong>Compensation:</strong> {{ .ModalitesDeCompensation }}</p>{{ end }}
+            {{ if .Distributeurs }}<p><strong>Distributeur:</strong> {{ .Distributeurs }}</p>{{ end }}
+            <p><strong>Zone:</strong> {{ if .ZoneGeographiqueDeVente }}{{ .ZoneGeographiqueDeVente }}{{ else }}non précisé{{ end }}</p>
+            {{ if .IdentificationProduits }}<p><strong>Code produit:</strong> {{ .IdentificationProduits }}</p>{{ end }}
+            {{ if .ModelesOuReferences }}<p><strong>Référence:</strong> {{ .ModelesOuReferences }}</p>{{ end }}
           </section>
           <nav class="links" aria-label="Liens vers documents PDF et fiches">
             {{ if .LienVersAffichettePDF }}<a class="link" href="{{.LienVersAffichettePDF}}" target="_blank" rel="noopener noreferrer">PDF</a>{{ end }}

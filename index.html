@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AlerteConso — Rappels de produits (non officiel)</title>
+  <meta name="description" content="AlerteConso : interface moderne pour explorer les rappels de produits en France. Données officielles RappelConso / DGCCRF, mises à jour régulièrement."/>
+  <meta name="theme-color" content="#D23B38"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Rubik:wght@600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --red:#D23B38;          /* brand red */
+      --red-strong:#B82B28;   /* deeper red */
+      --cream:#F7EDE2;        /* logo cream */
+      --ink:#130F0E;          /* dark text on cream */
+      --cream-border:#EEDCCE;
+      --shadow:0 14px 40px rgba(0,0,0,.28);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--cream);
+      background:
+        radial-gradient(1100px 520px at 12% -10%, rgba(255,255,255,.12), transparent 60%),
+        linear-gradient(180deg,var(--red),var(--red-strong));
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      overflow-x:hidden;
+    }
+    /* subtle grain (echoes the dotted texture of the logo) */
+    body::before{
+      content:""; position:fixed; inset:0; pointer-events:none; opacity:.08; mix-blend-mode:overlay;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 140 140"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity=".55"/></svg>');
+    }
+
+    .container{max-width:1100px;margin:0 auto;padding:28px 18px}
+    header{display:flex;justify-content:space-between;align-items:center;gap:16px}
+    .brand{font-family:'Rubik',Inter,sans-serif;font-weight:800;letter-spacing:-.02em}
+    .nav{display:flex;gap:10px}
+    .btn{
+      appearance:none; cursor:pointer; border-radius:14px; font-weight:800; letter-spacing:.01em;
+      padding:12px 16px; border:2px solid transparent;
+      transition:transform .15s ease, filter .15s ease, box-shadow .15s ease;
+    }
+    .btn-ghost{background:transparent;color:var(--cream);border-color:rgba(255,255,255,.45)}
+    .btn-ghost:hover{background:rgba(255,255,255,.08)}
+    .btn-ghost:active{transform:translateY(1px)}
+
+    /* Hero: sticker logo + paper card */
+    .hero{display:grid;grid-template-columns:1fr;align-items:center;gap:26px;margin:36px 0}
+    .sticker{
+      width:min(160px,30vw); aspect-ratio:1/1; border-radius:26px; background:var(--cream);
+      box-shadow:0 10px 30px rgba(0,0,0,.35); padding:14px; transform:rotate(-4deg);
+      background-image:radial-gradient(circle at 1px 1px, rgba(0,0,0,.06) 1px, transparent 1px);
+      background-size:8px 8px;
+    }
+    .sticker img{width:100%; height:100%; object-fit:contain; border-radius:18px}
+
+    .paper{
+      position:relative; max-width:880px; margin:0 auto; background:var(--cream); color:var(--ink);
+      border-radius:var(--radius); padding:26px 22px; border:1px solid var(--cream-border); box-shadow:var(--shadow);
+    }
+    /* torn top edge */
+    .paper::before{
+      content:""; position:absolute; left:0; right:0; top:-10px; height:22px;
+      background:radial-gradient(24px 10px at 12px 12px, transparent 49%, var(--cream) 50%) repeat-x left top/24px 22px;
+    }
+    .badge{
+      display:inline-block; font:700 11px/1 'Rubik',Inter,sans-serif; letter-spacing:.12em; text-transform:uppercase;
+      padding:8px 10px; border-radius:999px; background:#fff; border:1.5px dashed #d5c5b8; color:#7a3d32;
+      box-shadow:0 3px 10px rgba(0,0,0,.08);
+    }
+    h1{
+      font-family:'Rubik',Inter,sans-serif; font-size:clamp(34px,6vw,64px); line-height:1.03;
+      margin:12px 0 8px; letter-spacing:-.02em;
+    }
+    .tagline{opacity:.92; font-size:clamp(16px,2.2vw,19px); max-width:780px; margin:0}
+    .cta{display:flex; gap:12px; flex-wrap:wrap; margin:22px 0 6px}
+    .btn-primary{
+      color:var(--red-strong);
+      background:linear-gradient(180deg, var(--cream) 0%, #fff 100%);
+      box-shadow:0 6px 24px rgba(0,0,0,.18);
+    }
+    .btn-primary:hover{filter:brightness(.98)}
+    .btn-primary:active{transform:translateY(1px)}
+    .btn-outline{
+      background:transparent; color:var(--cream);
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.45);
+    }
+    .btn-outline:hover{background:rgba(255,255,255,.08)}
+
+    /* Sticker-style features */
+    .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin:30px 0;padding:0}
+    .card{
+      list-style:none; background:var(--cream); color:var(--ink);
+      border:1px solid var(--cream-border); border-radius:18px; padding:16px 16px 14px;
+      box-shadow:0 10px 26px rgba(0,0,0,.28);
+      background-image:radial-gradient(circle at 1px 1px, rgba(0,0,0,.06) 1px, transparent 1px);
+      background-size:8px 8px;
+    }
+    .card h3{font-family:'Rubik',Inter,sans-serif; margin:0 0 6px; font-size:18px}
+    .card p{margin:0; color:#3a2a24}
+    .card:nth-child(1){transform:rotate(-1.6deg)}
+    .card:nth-child(2){transform:rotate(.8deg)}
+    .card:nth-child(3){transform:rotate(-.6deg)}
+
+    /* receipt-style legal note */
+    .panel{
+      margin:40px auto 0; max-width:880px; background:var(--cream); color:var(--ink);
+      border-radius:12px; padding:14px 16px; border:1px dashed #d8c9bc;
+      box-shadow:0 6px 18px rgba(0,0,0,.22);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:13px;
+    }
+
+    footer{opacity:.9; text-align:center; margin:26px 0 22px; font-size:14px}
+    footer a{color:#FFE7DC; text-underline-offset:2px}
+
+    @media (min-width:920px){
+      .hero{grid-template-columns:300px 1fr}
+      .sticker{justify-self:center}
+    }
+    @media (max-width:520px){
+      header{justify-content:center}
+      .brand{display:none}
+      .sticker{width:120px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">AlerteConso</div>
+      <nav class="nav" aria-label="Liens">
+        <a class="btn btn-ghost" href="/recalls">Voir les rappels</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="title">
+        <div class="sticker">
+          <!-- Update path if needed -->
+          <img src="./logo.png" alt="Logo AlerteConso"/>
+        </div>
+
+        <div class="paper">
+          <span class="badge">Projet non officiel</span>
+          <h1 id="title">Rappels de produits — simples, rapides, fiables.</h1>
+          <p class="tagline">
+            Explorez les rappels de produits en France, issus des données officielles
+            <strong>RappelConso / DGCCRF</strong>. Une interface nette, des filtres utiles
+            et des liens directs vers les fiches et PDF.
+          </p>
+          <div class="cta">
+            <a class="btn btn-primary" href="/recalls">Voir les rappels</a>
+          </div>
+        </div>
+      </section>
+
+      <ul class="features" aria-label="Points forts">
+        <li class="card">
+          <h3>Rapide & lisible</h3>
+          <p>Accès immédiat aux infos clés.</p>
+        </li>
+        <li class="card">
+          <h3>Filtres utiles</h3>
+          <p>Catégorie, risque, zone, marque et période. Résultats pertinents en quelques clics.</p>
+        </li>
+        <li class="card">
+          <h3>Données officielles</h3>
+          <p>Mises à jour régulières depuis RappelConso (data.gouv.fr). Liens vers fiches & PDF.</p>
+        </li>
+      </ul>
+
+      <div class="panel" role="note" aria-label="Mention légale">
+        <p><strong>Sources</strong> : RappelConso / DGCCRF via data.gouv.fr. Projet indépendant, non affilié à la DGCCRF.</p>
+      </div>
+    </main>
+
+    <footer>
+      Fait avec ❤️ en France — <a href="https://github.com/Makepad-fr/alerteconso.com" target="_blank" rel="noopener">code source</a>
+    </footer>
+  </div>
+</body>
+</html>

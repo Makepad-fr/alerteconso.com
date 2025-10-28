@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>AlerteConso — Rappels de produits (non officiel)</title>
   <meta name="description" content="AlerteConso : interface moderne pour explorer les rappels de produits en France. Données officielles RappelConso / DGCCRF, mises à jour régulièrement."/>
   <meta name="theme-color" content="#D23B38"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Rubik:wght@600;700;800&display=swap" rel="stylesheet"/>
@@ -41,7 +40,11 @@
       appearance:none; cursor:pointer; border-radius:14px; font-weight:800; letter-spacing:.01em;
       padding:12px 16px; border:2px solid transparent;
       transition:transform .15s ease, filter .15s ease, box-shadow .15s ease;
+      text-decoration:none;
     }
+    .btn:hover,
+    .btn:focus,
+    .btn:visited{ text-decoration:none; }
     .btn-ghost{background:transparent;color:var(--cream);border-color:rgba(255,255,255,.45)}
     .btn-ghost:hover{background:rgba(255,255,255,.08)}
     .btn-ghost:active{transform:translateY(1px)}
@@ -116,6 +119,7 @@
     footer{opacity:.9; text-align:center; margin:26px 0 22px; font-size:14px}
     footer a{color:#FFE7DC; text-underline-offset:2px}
 
+    
     @media (min-width:920px){
       .hero{grid-template-columns:300px 1fr}
       .sticker{justify-self:center}
@@ -144,8 +148,7 @@
         </div>
 
         <div class="paper">
-          <span class="badge">Projet non officiel</span>
-          <h1 id="title">Rappels de produits — simples, rapides, fiables.</h1>
+          <h1 id="title">Rappels de produits simples, rapides, fiables.</h1>
           <p class="tagline">
             Explorez les rappels de produits en France, issus des données officielles
             <strong>RappelConso / DGCCRF</strong>. Une interface nette, des filtres utiles
@@ -171,14 +174,21 @@
           <p>Mises à jour régulières depuis RappelConso (data.gouv.fr). Liens vers fiches & PDF.</p>
         </li>
       </ul>
+<div class="panel" role="note" aria-label="Pourquoi c’est important">
+  <p>
+    Un rappel peut éviter des <em>intoxications, allergies, risques d’étouffement</em> ou des pertes financières.
+    </p>
+      <p style="margin-top:8px">
 
-      <div class="panel" role="note" aria-label="Mention légale">
-        <p><strong>Sources</strong> : RappelConso / DGCCRF via data.gouv.fr. Projet indépendant, non affilié à la DGCCRF.</p>
-      </div>
+    AlerteConso rend les infos officielles <strong>immédiates, triables et actionnables</strong>
+    pour tous : consommateurs, parents, pros.
+  </p>
+
+</div>
     </main>
 
     <footer>
-      Fait avec ❤️ en France — <a href="https://github.com/Makepad-fr/alerteconso.com" target="_blank" rel="noopener">code source</a>
+        <p> Sources : RappelConso / DGCCRF via data.gouv.fr. Projet indépendant, non affilié à la DGCCRF.</p>
     </footer>
   </div>
 </body>

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Product Recalls</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@600;700;800&display=swap" rel="stylesheet" />
 <style>
   :root {
     --bg: #f7f7fb;            /* page */
@@ -12,12 +13,13 @@
     --ink: #101828;           /* primary text */
     --muted: #667085;         /* secondary text */
     --border: #EAECF0;        /* lines */
-    --brand: #6B4EFF;         /* accent (violet) */
-    --brand-ink: #3E2FE3;     /* darker accent */
+    --brand: #D23B38;        /* logo red */
+    --brand-ink: #A62E2B;    /* darker red for text-on-pale */
+    --brand-strong: #B82B28;   /* deeper red for gradients/hover */
+    --ring: 0 0 0 4px rgba(210,59,56,0.18);
     --radius: 16px;           /* large radii */
     --shadow-1: 0 1px 2px rgba(16,24,40,0.06);
     --shadow-2: 0 4px 10px rgba(16,24,40,0.06);
-    --ring: 0 0 0 4px rgba(107,78,255,0.15);
   }
 
   html[data-theme='dark'] {
@@ -26,11 +28,12 @@
     --ink: #e6e7ea;
     --muted: #9aa3b2;
     --border: #1f2430;
-    --brand: #8B7BFF;
-    --brand-ink: #b0a7ff;
+    --brand: #FF7C76;
+    --brand-ink: #FFC1BD;
+    --brand-strong: #FF5A52;
+    --ring: 0 0 0 4px rgba(255,124,118,0.22);
     --shadow-1: 0 1px 2px rgba(0,0,0,0.35);
     --shadow-2: 0 6px 16px rgba(0,0,0,0.35);
-    --ring: 0 0 0 4px rgba(139,123,255,0.2);
   }
 
   * { box-sizing: border-box; }
@@ -55,16 +58,24 @@
   }
 
   /* Header */
-  .header { display:flex; align-items:center; justify-content:space-between; gap: 16px; margin-bottom: 20px; }
-  h1 { font-size: clamp(24px, 3.6vw, 36px); line-height: 1.2; margin: 0; letter-spacing: -0.01em; font-weight: 700; color: var(--ink); }
-  .sub { color: var(--muted); font-weight: 500; }
+.header { display:flex; align-items:center; justify-content:space-between; gap: 16px; margin-bottom: 20px; }
+  h1 {
+    font-family: 'Rubik', 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    font-size: clamp(28px, 3.8vw, 42px);
+    line-height: 1.1;
+    margin: 0;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    color: var(--ink);
+  }
+       .sub { color: var(--muted); font-weight: 500; }
 
   .toggle { display:flex; align-items:center; gap:10px; color: var(--muted); font-weight:600; }
   .switch { position: relative; width: 48px; height: 28px; }
   .switch input{opacity:0;width:0;height:0}
   .slider {position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;border-radius:999px;background: #e7e9ee; transition:.2s}
   .slider:before{content:"";position:absolute;height:20px;width:20px;left:4px;top:4px;border-radius:50%;background:#fff;box-shadow: var(--shadow-1); transition:.2s}
-  input:checked + .slider{background:#2a2f3a}
+input:checked + .slider{background: var(--brand)}
   input:checked + .slider:before{transform:translateX(20px)}
 
   /* Filters */
@@ -77,7 +88,11 @@
   }
 
   /* Apply button */
-  .apply-button { height: 44px; width: 100%; border-radius: 12px; border: 1px solid transparent; background: var(--brand); color: #fff; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-1); }
+  .apply-button {
+    height: 44px; width: 100%; border-radius: 12px; border: 1px solid transparent;
+    background: linear-gradient(180deg, var(--brand) 0%, var(--brand-strong) 100%);
+    color: #fff; font-weight: 800; cursor: pointer; box-shadow: var(--shadow-1);
+  }
   .apply-button:hover { filter: brightness(0.98); }
   .apply-button:active { transform: translateY(1px); }
 
@@ -167,11 +182,20 @@
   .image.empty { display:flex; align-items:center; justify-content:center; color:#98a2b3; font-size: 36px; }
 
   .content { padding: clamp(14px, 2.5vw, 18px); display:grid; gap: clamp(8px, 1.8vw, 12px); }
-  .h2 { font-size: clamp(16px, 1.7vw, 20px); font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+  .h2 { font-family: 'Rubik', 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size: clamp(18px, 1.8vw, 22px); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
 
   .badges { display:flex; flex-wrap:wrap; gap: 8px; }
   .badge { padding: 6px 10px; border-radius: 999px; background: #f2f4f7; color:#344054; border: 1px solid var(--border); font-weight: 600; font-size: clamp(11px, 1.2vw, 12px); }
-  .badge.brand { background: #EEF4FF; color:#3538CD; border-color:#E0EAFF; }
+.badge.brand {
+  background: #FDECEA;      /* pale red */
+  color: #7A271A;           /* deep red text */
+  border-color: #F7C5C2;    /* subtle border */
+}
+html[data-theme='dark'] .badge.brand {
+  background: #2A1210;
+  color: #FFB3AE;
+  border-color: #3A1A18;
+}
   html[data-theme='dark'] .badge { background:#151922; color:#d0d5dd; border-color:#202635; }
 
   .meta { display:grid; gap:6px; color: var(--muted); font-weight: 500; }
@@ -179,8 +203,8 @@
   .meta strong { color: var(--ink); }
 
   .links { display:flex; gap: 12px; margin-top: 4px; }
-  .link { color: var(--brand); font-weight: 650; text-decoration: none; border-bottom: 1px solid transparent; }
-  .link:hover { border-bottom-color: var(--brand); }
+  .link { color: var(--brand); font-weight: 700; text-decoration: none; border-bottom: 2px solid transparent; text-underline-offset: 2px; }
+  .link:hover { border-bottom-color: var(--brand-strong); }
 
   .pagination { display:flex; align-items:center; justify-content:center; gap: 16px; margin-top: 28px; font-weight: 600; }
   .pagination a { color: var(--brand); text-decoration:none; padding: 8px 12px; border-radius: 10px; border:1px solid var(--border); background: var(--surface); }
@@ -196,6 +220,12 @@
     .filters-toggle { display: inline-flex; }
     .filters-toggle { width: 100%; justify-content: center; }
   }
+
+  .apply-button,
+.apply-btn { /* both names covered */
+  background: var(--brand);
+  color: #fff;
+}
 </style>
 </head>
 <body>
@@ -203,7 +233,7 @@
     <header class="header">
       <div>
         <h1>Rappels produits</h1>
-        <div class="sub">nnées publiques vérifiées (RappelConso), actualisées régulièrement.</div>
+        <div class="sub">Données publiques vérifiées (RappelConso), actualisées régulièrement.</div>
       </div>
       <label class="toggle" title="Toggle light/dark">
         <span>Thème</span>

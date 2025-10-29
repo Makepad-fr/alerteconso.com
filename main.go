@@ -46,6 +46,11 @@ func main() {
 			http.NotFound(w, r)
 			return
 		}
+		// If filters/search are submitted to '/', redirect to '/recalls' keeping the query string
+		if r.URL.RawQuery != "" {
+			http.Redirect(w, r, "/recalls?"+r.URL.RawQuery, http.StatusFound)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
 	})

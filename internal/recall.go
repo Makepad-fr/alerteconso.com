@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // TODO: tum db querylerini logla ve ne kadar surdugunu logla
@@ -23,6 +24,7 @@ type RecallPageData struct {
 	SelectedRisk     string
 	DateStart        string
 	DateEnd          string
+	Query            string
 	Page             int
 }
 
@@ -100,6 +102,59 @@ func FetchRecalls() ([]Recall, error) {
 	err = json.Unmarshal(body, &recalls)
 	if err != nil {
 		return nil, err
+	}
+	return recalls, nil
+}
+
+// SearchRecalls provides a single free-text entry point over common fields.
+// It does not alter existing handlers; you can call it when a `q` param is present.
+func SearchRecalls(page, pageSize int, q string) ([]Recall, error) {
+	offset := (page - 1) * pageSize
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return GetPaginatedRecalls(page, pageSize)
+	}
+
+	term := "%" + q + "%"
+	rows, err := DB.Query(`
+		SELECT
+			id, numero_fiche, categorie_produit, sous_categorie_produit,
+			marque_produit, risques_encourus, motif_rappel,
+			preconisations_sanitaires, numero_contact, distributeurs,
+			modalites_de_compensation, zone_geographique_de_vente,
+			lien_vers_affichette_pdf, lien_vers_la_fiche_rappel,
+			liens_vers_les_images, libelle, date_publication
+		FROM recalls
+		WHERE (
+			libelle ILIKE $1 OR
+			marque_produit ILIKE $1 OR
+			modeles_ou_references ILIKE $1 OR
+			identification_produits ILIKE $1 OR
+			numero_fiche ILIKE $1
+		)
+		ORDER BY date_publication DESC
+		LIMIT $2 OFFSET $3
+	`, term, pageSize, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var recalls []Recall
+	for rows.Next() {
+		var r Recall
+		if err := rows.Scan(
+			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
+			&r.MarqueProduit, &r.RisquesEncourus, &r.MotifRappel,
+			&r.PreconisationsSanitaires, &r.NumeroContact, &r.Distributeurs,
+			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente,
+			&r.LienVersAffichettePDF, &r.LienVersLaFicheRappel,
+			&r.LiensVersLesImagesRaw, &r.Libelle, &r.DatePublication,
+		); err != nil {
+			return nil, err
+		}
+		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
+		recalls = append(recalls, r)
 	}
 	return recalls, nil
 }

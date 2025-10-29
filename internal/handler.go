@@ -14,6 +14,7 @@ func RecallsHandler(w http.ResponseWriter, r *http.Request) {
 	page := getQueryInt(r, "page", 1)
 	pageSize := getQueryInt(r, "pageSize", 20)
 
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	category := r.URL.Query().Get("category")
 	zone := r.URL.Query().Get("zone")
 	brand := r.URL.Query().Get("brand")
@@ -21,7 +22,15 @@ func RecallsHandler(w http.ResponseWriter, r *http.Request) {
 	dateStart := r.URL.Query().Get("dateStart")
 	dateEnd := r.URL.Query().Get("dateEnd")
 
-	recalls, err := GetPaginatedRecallsFiltered(page, pageSize, category, zone, risk, brand, dateStart, dateEnd)
+	var (
+		recalls []Recall
+		err     error
+	)
+	if q != "" {
+		recalls, err = SearchRecalls(page, pageSize, q)
+	} else {
+		recalls, err = GetPaginatedRecallsFiltered(page, pageSize, category, zone, risk, brand, dateStart, dateEnd)
+	}
 	if err != nil {
 		http.Error(w, "Failed to fetch recalls: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -125,14 +134,23 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 		page = p
 	}
 
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	category := r.URL.Query().Get("category")
 	zone := r.URL.Query().Get("zone")
 	brand := r.URL.Query().Get("brand")
-	risk := r.URL.Query().Get("risk") // NEW: get risk filter
+	risk := r.URL.Query().Get("risk")
 	dateStart := r.URL.Query().Get("dateStart")
 	dateEnd := r.URL.Query().Get("dateEnd")
 
-	recalls, err := GetPaginatedRecallsFiltered(page, 20, category, zone, risk, brand, dateStart, dateEnd)
+	var (
+		recalls []Recall
+		err     error
+	)
+	if q != "" {
+		recalls, err = SearchRecalls(page, 20, q)
+	} else {
+		recalls, err = GetPaginatedRecallsFiltered(page, 20, category, zone, risk, brand, dateStart, dateEnd)
+	}
 	if err != nil {
 		http.Error(w, "Error loading recalls", http.StatusInternalServerError)
 		return
@@ -180,6 +198,7 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 		SelectedRisk:     risk,
 		DateStart:        dateStart,
 		DateEnd:          dateEnd,
+		Query:            q,
 		Page:             page,
 	}
 

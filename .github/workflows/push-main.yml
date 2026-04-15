@@ -1,0 +1,58 @@
+name: Push Main
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: ghcr.io/makepad-fr/alerteconso.com
+  VERSION: ${{ github.sha }}
+  VCS_REF: ${{ github.sha }}
+  CACHE_REF: ghcr.io/makepad-fr/alerteconso.com:buildcache
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push image
+        uses: docker/bake-action@v6
+        env:
+          BUILD_DATE: ${{ github.event.head_commit.timestamp }}
+          VERSION: ${{ env.VERSION }}
+          VCS_REF: ${{ env.VCS_REF }}
+        with:
+          source: .
+          files: docker-bake.hcl
+          targets: publish
+          set: |
+            publish.cache-from=type=registry,ref=${{ env.CACHE_REF }}
+            publish.cache-to=type=registry,ref=${{ env.CACHE_REF }},mode=max
+            publish.push=true
+
+  deploy-production:
+    needs: publish
+    uses: ./.github/workflows/_reusable-deploy-swarm.yml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      environment: production
+      image_tag: ${{ github.sha }}
+    secrets: inherit

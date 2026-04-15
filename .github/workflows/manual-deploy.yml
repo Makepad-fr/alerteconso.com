@@ -1,0 +1,20 @@
+name: Manual Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Immutable image tag to deploy
+        required: true
+        type: string
+
+jobs:
+  deploy-production:
+    uses: ./.github/workflows/_reusable-deploy-swarm.yml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      environment: production
+      image_tag: ${{ inputs.image_tag }}
+    secrets: inherit

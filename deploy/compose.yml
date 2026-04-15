@@ -1,0 +1,21 @@
+services:
+  app:
+    image: ${ALERTECONSO_IMAGE:?ALERTECONSO_IMAGE is required}
+    environment:
+      DATABASE_URL_FILE: /run/secrets/alerteconso_database_url
+      PORT: ${PORT:-8080}
+    secrets:
+      - source: alerteconso_database_url
+        target: alerteconso_database_url
+    networks:
+      app:
+        aliases:
+          - ${ALERTECONSO_APP_ALIAS:?ALERTECONSO_APP_ALIAS is required}
+
+secrets:
+  alerteconso_database_url:
+    external: true
+    name: ${ALERTECONSO_DATABASE_URL_SECRET:?ALERTECONSO_DATABASE_URL_SECRET is required}
+
+networks:
+  app:

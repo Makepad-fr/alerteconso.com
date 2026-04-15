@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Makepad-fr/rappelconsommation/internal"
@@ -18,9 +19,9 @@ var indexHTML []byte
 var logoPNG []byte
 
 func main() {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("❌ DATABASE_URL not set")
+	dbURL, err := readSecretBackedEnv("DATABASE_URL")
+	if err != nil {
+		log.Fatal(err)
 	}
 	internal.InitDB(dbURL)
 
@@ -72,6 +73,30 @@ func main() {
 	fmt.Printf("Listening on http://0.0.0.0:%s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
+
+func readSecretBackedEnv(name string) (string, error) {
+	if filePath := strings.TrimSpace(os.Getenv(name + "_FILE")); filePath != "" {
+		value, err := os.ReadFile(filePath)
+		if err != nil {
+			return "", fmt.Errorf("❌ failed to read %s: %w", name+"_FILE", err)
+		}
+
+		trimmed := strings.TrimSpace(string(value))
+		if trimmed == "" {
+			return "", fmt.Errorf("❌ %s points to an empty file", name+"_FILE")
+		}
+
+		return trimmed, nil
+	}
+
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return "", fmt.Errorf("❌ %s or %s_FILE must be set", name, name)
+	}
+
+	return value, nil
+}
+
 func startRecallUpdater() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()

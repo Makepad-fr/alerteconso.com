@@ -111,13 +111,30 @@ jobs:
       - name: Ensure database role and database exist
         shell: bash
         env:
+          REMOTE_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          REMOTE_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+          REMOTE_USER: ${{ secrets.DEPLOY_SSH_USER }}
           ALERTECONSO_DATABASE_ADMIN_URL: ${{ secrets.ALERTECONSO_DATABASE_ADMIN_URL }}
           ALERTECONSO_DATABASE_NAME: ${{ secrets.ALERTECONSO_DATABASE_NAME }}
           ALERTECONSO_DATABASE_USER: ${{ secrets.ALERTECONSO_DATABASE_USER }}
           ALERTECONSO_DATABASE_PASSWORD: ${{ secrets.ALERTECONSO_DATABASE_PASSWORD }}
         run: |
           set -euo pipefail
-          cat > "${RUNNER_TEMP}/ensure-database.sql" <<'SQL'
+          remote_port=${REMOTE_PORT:-22}
+          ssh_opts=(-o StrictHostKeyChecking=accept-new -p "${remote_port}")
+          remote_target="${REMOTE_USER}@${REMOTE_HOST}"
+
+          ssh "${ssh_opts[@]}" "${remote_target}" \
+            ALERTECONSO_DATABASE_ADMIN_URL="${ALERTECONSO_DATABASE_ADMIN_URL}" \
+            ALERTECONSO_DATABASE_NAME="${ALERTECONSO_DATABASE_NAME}" \
+            ALERTECONSO_DATABASE_USER="${ALERTECONSO_DATABASE_USER}" \
+            ALERTECONSO_DATABASE_PASSWORD="${ALERTECONSO_DATABASE_PASSWORD}" \
+            'bash -se' <<'EOF'
+          set -euo pipefail
+          work_dir=$(mktemp -d)
+          trap 'rm -rf "${work_dir}"' EXIT
+
+          cat > "${work_dir}/ensure-database.sql" <<'SQL'
           SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'db_user', :'db_password')
           WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'db_user') \gexec
           SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'db_user', :'db_password') \gexec
@@ -127,22 +144,22 @@ jobs:
           SQL
 
           docker run --rm \
-            -e ALERTECONSO_DATABASE_ADMIN_URL \
-            -e ALERTECONSO_DATABASE_NAME \
-            -e ALERTECONSO_DATABASE_USER \
-            -e ALERTECONSO_DATABASE_PASSWORD \
-            -v "${RUNNER_TEMP}:/runner:ro" \
+            -v "${work_dir}:/runner:ro" \
             postgres:16-alpine \
-            psql "$ALERTECONSO_DATABASE_ADMIN_URL" \
+            psql "${ALERTECONSO_DATABASE_ADMIN_URL}" \
               -v ON_ERROR_STOP=1 \
-              -v db_name="$ALERTECONSO_DATABASE_NAME" \
-              -v db_user="$ALERTECONSO_DATABASE_USER" \
-              -v db_password="$ALERTECONSO_DATABASE_PASSWORD" \
+              -v db_name="${ALERTECONSO_DATABASE_NAME}" \
+              -v db_user="${ALERTECONSO_DATABASE_USER}" \
+              -v db_password="${ALERTECONSO_DATABASE_PASSWORD}" \
               -f /runner/ensure-database.sql
+          EOF
 
       - name: Apply schema
         shell: bash
         env:
+          REMOTE_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          REMOTE_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+          REMOTE_USER: ${{ secrets.DEPLOY_SSH_USER }}
           ALERTECONSO_DATABASE_HOST: ${{ secrets.ALERTECONSO_DATABASE_HOST }}
           ALERTECONSO_DATABASE_PORT: ${{ secrets.ALERTECONSO_DATABASE_PORT }}
           ALERTECONSO_DATABASE_NAME: ${{ secrets.ALERTECONSO_DATABASE_NAME }}
@@ -150,6 +167,28 @@ jobs:
           ALERTECONSO_DATABASE_PASSWORD: ${{ secrets.ALERTECONSO_DATABASE_PASSWORD }}
         run: |
           set -euo pipefail
+          remote_port=${REMOTE_PORT:-22}
+          ssh_opts=(-o StrictHostKeyChecking=accept-new -p "${remote_port}")
+          scp_opts=(-o StrictHostKeyChecking=accept-new -P "${remote_port}")
+          remote_target="${REMOTE_USER}@${REMOTE_HOST}"
+          remote_schema="/tmp/alerteconso-schema-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sql"
+
+          scp "${scp_opts[@]}" "${GITHUB_WORKSPACE}/schema.sql" "${remote_target}:${remote_schema}"
+
+          ssh "${ssh_opts[@]}" "${remote_target}" \
+            ALERTECONSO_DATABASE_HOST="${ALERTECONSO_DATABASE_HOST}" \
+            ALERTECONSO_DATABASE_PORT="${ALERTECONSO_DATABASE_PORT}" \
+            ALERTECONSO_DATABASE_NAME="${ALERTECONSO_DATABASE_NAME}" \
+            ALERTECONSO_DATABASE_USER="${ALERTECONSO_DATABASE_USER}" \
+            ALERTECONSO_DATABASE_PASSWORD="${ALERTECONSO_DATABASE_PASSWORD}" \
+            REMOTE_SCHEMA="${remote_schema}" \
+            'bash -se' <<'EOF'
+          set -euo pipefail
+          cleanup() {
+            rm -f "${REMOTE_SCHEMA}"
+          }
+          trap cleanup EXIT
+
           docker run --rm \
             -e PGHOST="${ALERTECONSO_DATABASE_HOST}" \
             -e PGPORT="${ALERTECONSO_DATABASE_PORT}" \
@@ -157,8 +196,10 @@ jobs:
             -e PGUSER="${ALERTECONSO_DATABASE_USER}" \
             -e PGPASSWORD="${ALERTECONSO_DATABASE_PASSWORD}" \
             -e PGSSLMODE=disable \
-            -v "${GITHUB_WORKSPACE}:/workspace:ro" \
-            postgres:16-alpine psql -v ON_ERROR_STOP=1 -f /workspace/schema.sql
+            -v "/tmp:/workspace:ro" \
+            postgres:16-alpine \
+            psql -v ON_ERROR_STOP=1 -f "/workspace/$(basename "${REMOTE_SCHEMA}")"
+          EOF
 
       - name: Create swarm secret
         shell: bash

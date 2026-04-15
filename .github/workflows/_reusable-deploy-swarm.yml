@@ -317,9 +317,16 @@ jobs:
           done
 
           mapfile -t old_secrets < <(
-            docker secret ls --format '{{.Name}}' \
-              | grep '^alerteconso_prod_database_url_' \
-              | sort -r
+            (
+              docker secret ls --format '{{.Name}}' \
+                | grep '^alerteconso_prod_database_url_' \
+                | while read -r secret; do
+                    created_at=$(docker secret inspect "${secret}" --format '{{.CreatedAt}}')
+                    printf '%s\t%s\n' "${created_at}" "${secret}"
+                  done \
+                | sort -r \
+                | cut -f2
+            ) || true
           )
           if ((${#old_secrets[@]} > 2)); then
             for secret in "${old_secrets[@]:2}"; do

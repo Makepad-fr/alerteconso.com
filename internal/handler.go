@@ -80,7 +80,7 @@ func RecallCollectionHandler(w http.ResponseWriter, r *http.Request) {
 	summaries := recallSummaries(recalls)
 
 	links := collectionLinks("/recalls", r.URL.Query(), page, pageSize, hasNext)
-	writeCollectionLinkHeader(w, "/recalls", r.URL.Query(), page, pageSize, hasNext)
+	writeLinkHeader(w, links)
 	writeJSON(w, RecallListResponse{
 		Data: summaries,
 		Page: PageMeta{
@@ -431,7 +431,8 @@ func writeRecallsError(w http.ResponseWriter, err error) {
 		http.Error(w, validationErr.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Error(w, "Failed to fetch recalls: "+err.Error(), http.StatusInternalServerError)
+	log.Printf("failed to fetch recalls: %v", err)
+	http.Error(w, "Failed to fetch recalls", http.StatusInternalServerError)
 }
 
 func validateDateFilters(dateStart, dateEnd string) error {
@@ -608,9 +609,9 @@ func collectionLinks(path string, query url.Values, page, pageSize int, hasNext 
 	return links
 }
 
-func writeCollectionLinkHeader(w http.ResponseWriter, path string, query url.Values, page, pageSize int, hasNext bool) {
+func writeLinkHeader(w http.ResponseWriter, links []Link) {
 	parts := make([]string, 0)
-	for _, link := range collectionLinks(path, query, page, pageSize, hasNext) {
+	for _, link := range links {
 		parts = append(parts, fmt.Sprintf("<%s>; rel=%q", link.Href, link.Rel))
 	}
 	w.Header().Set("Link", strings.Join(parts, ", "))

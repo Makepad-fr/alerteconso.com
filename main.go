@@ -40,18 +40,20 @@ func main() {
 		port = "8080"
 	}
 
-	http.HandleFunc("/api/recalls", internal.APIRecallsHandler)
-	http.HandleFunc("/api/recalls/categories", internal.CategoriesHandler)
-	http.HandleFunc("/api/recalls/risks", internal.RisksHandler)
-	http.HandleFunc("/api/recalls/zones", internal.ZonesHandler)
-	http.HandleFunc("/api/recalls/brands", internal.BrandsHandler)
-	http.HandleFunc("/api/recalls/filters", internal.FiltersHandler)
-	http.HandleFunc("/api/recalls/", internal.RecallDetailHandler)
-	http.HandleFunc("/api/", internal.APIRootHandler)
-	http.HandleFunc("/api", internal.APIRootHandler)
+	http.HandleFunc("/recalls/categories", internal.CategoriesHandler)
+	http.HandleFunc("/recalls/risks", internal.RisksHandler)
+	http.HandleFunc("/recalls/zones", internal.ZonesHandler)
+	http.HandleFunc("/recalls/brands", internal.BrandsHandler)
+	http.HandleFunc("/recalls/filters", internal.FiltersHandler)
+	http.HandleFunc("/recalls/", internal.RecallDetailHandler)
+	http.HandleFunc("/recalls", internal.RecallsHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
+			return
+		}
+		if !internal.PrefersHTML(r) {
+			internal.RootHandler(w, r)
 			return
 		}
 		// If filters/search are submitted to '/', redirect to '/recalls' keeping the query string
@@ -67,7 +69,6 @@ func main() {
 		w.Header().Set("Content-Type", "image/png")
 		_, _ = w.Write(logoPNG)
 	})
-	http.HandleFunc("/recalls", internal.RecallsPageHandler)
 	http.HandleFunc("/healthz", internal.HealthzHandler)
 	http.HandleFunc("/readyz", internal.ReadyzHandler)
 	fmt.Printf("Listening on http://0.0.0.0:%s\n", port)

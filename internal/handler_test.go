@@ -10,14 +10,14 @@ import (
 // Optionally, mock FetchRecalls for the handler test
 // net/http/httptest is used to simulate real HTTP requests without a running server
 
-func TestAPIRecallsHandlerStatusOK(t *testing.T) {
+func TestRecallCollectionHandlerStatusOK(t *testing.T) {
 	// ✅ Setup DB connection (same as your main.go)
 	InitDB(testDatabaseURL(t))
 
 	rr := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/recalls", nil)
+	req := httptest.NewRequest("GET", "/recalls", nil)
 
-	APIRecallsHandler(rr, req)
+	RecallCollectionHandler(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", rr.Code)
@@ -32,13 +32,13 @@ func mapQuery(key, value string) url.Values {
 
 func TestCollectionLinks(t *testing.T) {
 	query := mapQuery("q", "fromage")
-	links := collectionLinks("/api/recalls", query, 2, 20, 20)
+	links := collectionLinks("/recalls", query, 2, 20, 20)
 
 	want := map[string]string{
-		"self":  "/api/recalls?page=2&pageSize=20&q=fromage",
-		"first": "/api/recalls?page=1&pageSize=20&q=fromage",
-		"prev":  "/api/recalls?page=1&pageSize=20&q=fromage",
-		"next":  "/api/recalls?page=3&pageSize=20&q=fromage",
+		"self":  "/recalls?page=2&pageSize=20&q=fromage",
+		"first": "/recalls?page=1&pageSize=20&q=fromage",
+		"prev":  "/recalls?page=1&pageSize=20&q=fromage",
+		"next":  "/recalls?page=3&pageSize=20&q=fromage",
 	}
 	for _, link := range links {
 		if expected, ok := want[link.Rel]; ok && link.Href != expected {
@@ -75,8 +75,8 @@ func TestAttachRecallLinks(t *testing.T) {
 		got[link.Rel] = link.Href
 	}
 	for rel, href := range map[string]string{
-		"self":       "/api/recalls/123",
-		"collection": "/api/recalls",
+		"self":       "/recalls/123",
+		"collection": "/recalls",
 		"official":   "https://rappel.conso.gouv.fr/fiche-rappel/123/interne",
 		"pdf":        "https://rappel.conso.gouv.fr/affichettepdf/123/interne",
 	} {
@@ -87,13 +87,33 @@ func TestAttachRecallLinks(t *testing.T) {
 }
 
 func TestRecallIDFromPathOnlyAcceptsCanonicalAPIPath(t *testing.T) {
-	if got := recallIDFromPath("/api/recalls/123"); got != "123" {
-		t.Fatalf("expected canonical API id 123, got %q", got)
+	if got := recallIDFromPath("/recalls/123"); got != "123" {
+		t.Fatalf("expected canonical recall id 123, got %q", got)
 	}
 	if got := recallIDFromPath("/recall/123"); got != "" {
 		t.Fatalf("expected noncanonical recall path to be ignored, got %q", got)
 	}
-	if got := recallIDFromPath("/recalls/123"); got != "" {
-		t.Fatalf("expected web recall path to be ignored, got %q", got)
+	if got := recallIDFromPath("/api/recalls/123"); got != "" {
+		t.Fatalf("expected namespaced API path to be ignored, got %q", got)
+	}
+}
+
+func TestPrefersHTML(t *testing.T) {
+	req := httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	if !PrefersHTML(req) {
+		t.Fatal("expected browser Accept header to prefer HTML")
+	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "application/json,text/html;q=0.9")
+	if PrefersHTML(req) {
+		t.Fatal("expected application/json to prefer JSON")
+	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "*/*")
+	if PrefersHTML(req) {
+		t.Fatal("expected wildcard Accept header to use JSON representation")
 	}
 }

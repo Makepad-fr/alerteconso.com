@@ -2,7 +2,9 @@
 
 Base URL: `https://alerteconso.com`
 
-The API is read-only for public clients and is scoped under `/api`. The `/recalls` route is the browser HTML page, not an API endpoint. API responses use JSON and expose HATEOAS links in `_links` fields and RFC 8288 `Link` headers.
+The public API is read-only and exposes resources directly under their semantic URIs. There is no `/api` namespace. JSON representations expose HATEOAS links in `_links` fields and RFC 8288 `Link` headers where pagination applies.
+
+`/recalls` is the recall collection resource. Clients receive JSON by default and should send `Accept: application/json`. Browsers that send an HTML-preferred `Accept` header receive the existing web page for the same collection resource.
 
 ## Link Relations
 
@@ -24,7 +26,7 @@ The API is read-only for public clients and is scoped under `/api`. The `/recall
 
 ## Collection Query Parameters
 
-Supported by `GET /api/recalls`.
+Supported by `GET /recalls`.
 
 | Parameter | Default | Description |
 | --- | --- | --- |
@@ -38,34 +40,36 @@ Supported by `GET /api/recalls`.
 | `dateStart` | empty | Inclusive `date_publication` lower bound |
 | `dateEnd` | empty | Inclusive `date_publication` upper bound |
 
-## Endpoints
+## Resources
 
-### API Root
+### Service Entry Point
 
 ```http
-GET /api
+GET /
+Accept: application/json
 ```
 
-Returns discoverable API links.
+Returns discoverable links for the public resources.
 
 ```json
 {
   "_links": [
-    { "rel": "self", "href": "/api" },
-    { "rel": "recalls", "href": "/api/recalls" },
-    { "rel": "recall-filters", "href": "/api/recalls/filters" },
-    { "rel": "recall-categories", "href": "/api/recalls/categories" },
-    { "rel": "recall-risks", "href": "/api/recalls/risks" },
-    { "rel": "recall-zones", "href": "/api/recalls/zones" },
-    { "rel": "recall-brands", "href": "/api/recalls/brands" }
+    { "rel": "self", "href": "/" },
+    { "rel": "recalls", "href": "/recalls" },
+    { "rel": "recall-filters", "href": "/recalls/filters" },
+    { "rel": "recall-categories", "href": "/recalls/categories" },
+    { "rel": "recall-risks", "href": "/recalls/risks" },
+    { "rel": "recall-zones", "href": "/recalls/zones" },
+    { "rel": "recall-brands", "href": "/recalls/brands" }
   ]
 }
 ```
 
-### List Recalls
+### Recall Collection
 
 ```http
-GET /api/recalls?page=1&pageSize=20
+GET /recalls?page=1&pageSize=20
+Accept: application/json
 ```
 
 Returns a REST collection envelope.
@@ -80,8 +84,8 @@ Returns a REST collection envelope.
       "marque_produit": "xmgolong",
       "libelle": "chaussures pour enfants",
       "_links": [
-        { "rel": "self", "href": "/api/recalls/49788" },
-        { "rel": "collection", "href": "/api/recalls" },
+        { "rel": "self", "href": "/recalls/49788" },
+        { "rel": "collection", "href": "/recalls" },
         { "rel": "official", "href": "https://rappel.conso.gouv.fr/fiche-rappel/49788/rapex" }
       ]
     }
@@ -92,19 +96,20 @@ Returns a REST collection envelope.
     "count": 1
   },
   "_links": [
-    { "rel": "self", "href": "/api/recalls?page=1&pageSize=20" },
-    { "rel": "first", "href": "/api/recalls?page=1&pageSize=20" },
-    { "rel": "next", "href": "/api/recalls?page=2&pageSize=20" }
+    { "rel": "self", "href": "/recalls?page=1&pageSize=20" },
+    { "rel": "first", "href": "/recalls?page=1&pageSize=20" },
+    { "rel": "next", "href": "/recalls?page=2&pageSize=20" }
   ]
 }
 ```
 
 The response also includes an HTTP `Link` header with the same collection navigation relations.
 
-### Get Recall
+### Recall Resource
 
 ```http
-GET /api/recalls/{id}
+GET /recalls/{id}
+Accept: application/json
 ```
 
 Returns one recall resource with `_links`.
@@ -115,8 +120,8 @@ Returns one recall resource with `_links`.
   "numero_fiche": "sr/01361/26",
   "libelle": "chaussures pour enfants",
   "_links": [
-    { "rel": "self", "href": "/api/recalls/49788" },
-    { "rel": "collection", "href": "/api/recalls" },
+    { "rel": "self", "href": "/recalls/49788" },
+    { "rel": "collection", "href": "/recalls" },
     { "rel": "official", "href": "https://rappel.conso.gouv.fr/fiche-rappel/49788/rapex" },
     { "rel": "pdf", "href": "https://rappel.conso.gouv.fr/affichettepdf/49788/rapex" }
   ]
@@ -126,23 +131,25 @@ Returns one recall resource with `_links`.
 ### Recall Filter Metadata
 
 ```http
-GET /api/recalls/filters
-GET /api/recalls/categories
-GET /api/recalls/risks
-GET /api/recalls/zones
-GET /api/recalls/brands
+GET /recalls/filters
+GET /recalls/categories
+GET /recalls/risks
+GET /recalls/zones
+GET /recalls/brands
+Accept: application/json
 ```
 
-Filter responses contain `data`, `count`, and `_links`, except `/api/recalls/filters`, which groups all filter arrays in one response.
+Filter responses contain `data`, `count`, and `_links`, except `/recalls/filters`, which groups all filter arrays in one response.
 
-## Web Routes
+## HTML Representations
 
 ```http
 GET /
 GET /recalls
+Accept: text/html
 ```
 
-These routes return HTML and are not part of the JSON API.
+These requests return the browser interface for the service entry point and recall collection.
 
 ## Status Endpoints
 

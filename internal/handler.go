@@ -11,8 +11,8 @@ import (
 	"text/template"
 )
 
-func APIRootHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/api" && r.URL.Path != "/api/" {
+func RootHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
@@ -22,19 +22,31 @@ func APIRootHandler(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, map[string]any{
 		"_links": []Link{
-			{Rel: "self", Href: "/api"},
-			{Rel: "recalls", Href: "/api/recalls"},
-			{Rel: "recall-filters", Href: "/api/recalls/filters"},
-			{Rel: "recall-categories", Href: "/api/recalls/categories"},
-			{Rel: "recall-risks", Href: "/api/recalls/risks"},
-			{Rel: "recall-zones", Href: "/api/recalls/zones"},
-			{Rel: "recall-brands", Href: "/api/recalls/brands"},
+			{Rel: "self", Href: "/"},
+			{Rel: "recalls", Href: "/recalls"},
+			{Rel: "recall-filters", Href: "/recalls/filters"},
+			{Rel: "recall-categories", Href: "/recalls/categories"},
+			{Rel: "recall-risks", Href: "/recalls/risks"},
+			{Rel: "recall-zones", Href: "/recalls/zones"},
+			{Rel: "recall-brands", Href: "/recalls/brands"},
 		},
 	}, http.StatusOK)
 }
 
-func APIRecallsHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/api/recalls" {
+func RecallsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/recalls" {
+		http.NotFound(w, r)
+		return
+	}
+	if PrefersHTML(r) {
+		ListRecallsHandler(w, r)
+		return
+	}
+	RecallCollectionHandler(w, r)
+}
+
+func RecallCollectionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/recalls" {
 		http.NotFound(w, r)
 		return
 	}
@@ -55,8 +67,8 @@ func APIRecallsHandler(w http.ResponseWriter, r *http.Request) {
 		attachRecallLinks(&recalls[i])
 	}
 
-	links := collectionLinks("/api/recalls", r.URL.Query(), page, pageSize, len(recalls))
-	writeCollectionLinkHeader(w, "/api/recalls", r.URL.Query(), page, pageSize, len(recalls))
+	links := collectionLinks("/recalls", r.URL.Query(), page, pageSize, len(recalls))
+	writeCollectionLinkHeader(w, "/recalls", r.URL.Query(), page, pageSize, len(recalls))
 	writeJSON(w, RecallListResponse{
 		Data: recalls,
 		Page: PageMeta{
@@ -113,9 +125,6 @@ func ReadyzHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ready"))
-}
-func RecallsPageHandler(w http.ResponseWriter, r *http.Request) {
-	ListRecallsHandler(w, r)
 }
 
 func FetchAndUpsertHandler(w http.ResponseWriter, r *http.Request) {
@@ -250,7 +259,7 @@ func CategoriesHandler(w http.ResponseWriter, r *http.Request) {
 		"count": len(cats),
 		"_links": []Link{
 			{Rel: "self", Href: r.URL.Path},
-			{Rel: "recalls", Href: "/api/recalls"},
+			{Rel: "recalls", Href: "/recalls"},
 		},
 	}, http.StatusOK)
 }
@@ -270,7 +279,7 @@ func RisksHandler(w http.ResponseWriter, r *http.Request) {
 		"count": len(risks),
 		"_links": []Link{
 			{Rel: "self", Href: r.URL.Path},
-			{Rel: "recalls", Href: "/api/recalls"},
+			{Rel: "recalls", Href: "/recalls"},
 		},
 	}, http.StatusOK)
 }
@@ -290,7 +299,7 @@ func ZonesHandler(w http.ResponseWriter, r *http.Request) {
 		"count": len(zones),
 		"_links": []Link{
 			{Rel: "self", Href: r.URL.Path},
-			{Rel: "recalls", Href: "/api/recalls"},
+			{Rel: "recalls", Href: "/recalls"},
 		},
 	}, http.StatusOK)
 }
@@ -310,7 +319,7 @@ func BrandsHandler(w http.ResponseWriter, r *http.Request) {
 		"count": len(brands),
 		"_links": []Link{
 			{Rel: "self", Href: r.URL.Path},
-			{Rel: "recalls", Href: "/api/recalls"},
+			{Rel: "recalls", Href: "/recalls"},
 		},
 	}, http.StatusOK)
 }
@@ -333,11 +342,11 @@ func FiltersHandler(w http.ResponseWriter, r *http.Request) {
 		"brands":     brands,
 		"_links": []Link{
 			{Rel: "self", Href: r.URL.Path},
-			{Rel: "recalls", Href: "/api/recalls"},
-			{Rel: "recall-categories", Href: "/api/recalls/categories"},
-			{Rel: "recall-risks", Href: "/api/recalls/risks"},
-			{Rel: "recall-zones", Href: "/api/recalls/zones"},
-			{Rel: "recall-brands", Href: "/api/recalls/brands"},
+			{Rel: "recalls", Href: "/recalls"},
+			{Rel: "recall-categories", Href: "/recalls/categories"},
+			{Rel: "recall-risks", Href: "/recalls/risks"},
+			{Rel: "recall-zones", Href: "/recalls/zones"},
+			{Rel: "recall-brands", Href: "/recalls/brands"},
 		},
 	}, http.StatusOK)
 }
@@ -366,8 +375,52 @@ func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
 	return false
 }
 
+func PrefersHTML(r *http.Request) bool {
+	accept := r.Header.Get("Accept")
+	if accept == "" {
+		return false
+	}
+	htmlQ := acceptedQuality(accept, "text/html")
+	jsonQ := acceptedQuality(accept, "application/json")
+	return htmlQ > jsonQ
+}
+
+func acceptedQuality(accept, target string) float64 {
+	maxQ := 0.0
+	targetType, _, _ := strings.Cut(target, "/")
+	for _, part := range strings.Split(accept, ",") {
+		mediaRange, q := parseAcceptPart(part)
+		if mediaRange == "" {
+			continue
+		}
+		if mediaRange == target || mediaRange == "*/*" || mediaRange == targetType+"/*" {
+			if q > maxQ {
+				maxQ = q
+			}
+		}
+	}
+	return maxQ
+}
+
+func parseAcceptPart(part string) (string, float64) {
+	q := 1.0
+	pieces := strings.Split(part, ";")
+	mediaRange := strings.ToLower(strings.TrimSpace(pieces[0]))
+	for _, param := range pieces[1:] {
+		key, value, ok := strings.Cut(strings.TrimSpace(param), "=")
+		if !ok || !strings.EqualFold(strings.TrimSpace(key), "q") {
+			continue
+		}
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if err == nil && parsed >= 0 {
+			q = parsed
+		}
+	}
+	return mediaRange, q
+}
+
 func recallIDFromPath(path string) string {
-	const prefix = "/api/recalls/"
+	const prefix = "/recalls/"
 	if strings.HasPrefix(path, prefix) {
 		return strings.TrimPrefix(path, prefix)
 	}
@@ -376,8 +429,8 @@ func recallIDFromPath(path string) string {
 
 func attachRecallLinks(recall *Recall) {
 	links := FlexibleLinks{
-		{Rel: "self", Href: fmt.Sprintf("/api/recalls/%d", recall.ID)},
-		{Rel: "collection", Href: "/api/recalls"},
+		{Rel: "self", Href: fmt.Sprintf("/recalls/%d", recall.ID)},
+		{Rel: "collection", Href: "/recalls"},
 	}
 	if recall.LienVersLaFicheRappel != "" {
 		links = append(links, Link{Rel: "official", Href: recall.LienVersLaFicheRappel})

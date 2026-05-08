@@ -65,3 +65,20 @@ func TestRecallUnmarshalV2IdentificationArray(t *testing.T) {
 		t.Fatalf("expected identification products %q, got %q", want, got)
 	}
 }
+
+func TestFlexibleLinksRejectsUnsupportedShape(t *testing.T) {
+	var links FlexibleLinks
+	if err := json.Unmarshal([]byte(`{"unexpected":"shape"}`), &links); err == nil {
+		t.Fatal("expected unsupported non-empty link object to fail")
+	}
+}
+
+func TestFlexibleLinksAllowsEmptyObject(t *testing.T) {
+	var links FlexibleLinks
+	if err := json.Unmarshal([]byte(`{}`), &links); err != nil {
+		t.Fatalf("expected empty object to be accepted, got %v", err)
+	}
+	if links != nil {
+		t.Fatalf("expected empty object to produce nil links, got %#v", links)
+	}
+}

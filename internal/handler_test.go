@@ -132,6 +132,18 @@ func TestRequireMethodAllowsHeadForGetResources(t *testing.T) {
 	}
 }
 
+func TestValidateDateFilters(t *testing.T) {
+	if err := validateDateFilters("2026-05-01", "2026-05-08T00:00:00Z"); err != nil {
+		t.Fatalf("expected valid date filters, got %v", err)
+	}
+	if err := validateDateFilters("not-a-date", ""); err == nil {
+		t.Fatal("expected invalid start date to fail")
+	}
+	if err := validateDateFilters("2026-05-09", "2026-05-08"); err == nil {
+		t.Fatal("expected inverted date range to fail")
+	}
+}
+
 func TestPrefersHTML(t *testing.T) {
 	req := httptest.NewRequest("GET", "/recalls", nil)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")

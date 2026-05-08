@@ -68,7 +68,7 @@ type FlexibleLinks []Link
 
 func (links *FlexibleLinks) UnmarshalJSON(data []byte) error {
 	raw := strings.TrimSpace(string(data))
-	if raw == "" || raw == "null" || raw == "{}" {
+	if raw == "" || raw == "null" {
 		*links = nil
 		return nil
 	}
@@ -85,8 +85,13 @@ func (links *FlexibleLinks) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	*links = nil
-	return nil
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(data, &object); err == nil && object != nil && len(object) == 0 {
+		*links = nil
+		return nil
+	}
+
+	return fmt.Errorf("unsupported links JSON value: %s", raw)
 }
 
 func jsonValueToString(value any) string {

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 )
 
 func RootHandler(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +62,7 @@ func RecallCollectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	recalls, err := getRecallsFromRequestWithLimit(r, page, pageSize, pageSize+1)
 	if err != nil {
-		http.Error(w, "Failed to fetch recalls: "+err.Error(), http.StatusInternalServerError)
+		writeRecallsError(w, err)
 		return
 	}
 
@@ -187,6 +188,10 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 	risk := r.URL.Query().Get("risk")
 	dateStart := r.URL.Query().Get("dateStart")
 	dateEnd := r.URL.Query().Get("dateEnd")
+	if err := validateDateFilters(dateStart, dateEnd); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	var (
 		recalls []Recall
@@ -400,11 +405,57 @@ func getRecallsFromRequestWithLimit(r *http.Request, page, pageSize, limit int) 
 	risk := r.URL.Query().Get("risk")
 	dateStart := r.URL.Query().Get("dateStart")
 	dateEnd := r.URL.Query().Get("dateEnd")
+	if err := validateDateFilters(dateStart, dateEnd); err != nil {
+		return nil, err
+	}
 
 	if q != "" {
 		return SearchRecallsWithLimit(page, pageSize, limit, q)
 	}
 	return GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit, category, zone, risk, brand, dateStart, dateEnd)
+}
+
+type requestValidationError string
+
+func (e requestValidationError) Error() string {
+	return string(e)
+}
+
+func writeRecallsError(w http.ResponseWriter, err error) {
+	var validationErr requestValidationError
+	if errors.As(err, &validationErr) {
+		http.Error(w, validationErr.Error(), http.StatusBadRequest)
+		return
+	}
+	http.Error(w, "Failed to fetch recalls: "+err.Error(), http.StatusInternalServerError)
+}
+
+func validateDateFilters(dateStart, dateEnd string) error {
+	start, hasStart, err := parseDateFilter("dateStart", dateStart)
+	if err != nil {
+		return err
+	}
+	end, hasEnd, err := parseDateFilter("dateEnd", dateEnd)
+	if err != nil {
+		return err
+	}
+	if hasStart && hasEnd && start.After(end) {
+		return requestValidationError("dateStart must be before or equal to dateEnd")
+	}
+	return nil
+}
+
+func parseDateFilter(name, value string) (time.Time, bool, error) {
+	if value == "" {
+		return time.Time{}, false, nil
+	}
+	for _, layout := range []string{"2006-01-02", time.RFC3339} {
+		parsed, err := time.Parse(layout, value)
+		if err == nil {
+			return parsed, true, nil
+		}
+	}
+	return time.Time{}, false, requestValidationError(fmt.Sprintf("%s must use YYYY-MM-DD or RFC3339 format", name))
 }
 
 func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {

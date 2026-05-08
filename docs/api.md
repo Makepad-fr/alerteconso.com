@@ -37,8 +37,8 @@ Supported by `GET /recalls`.
 | `zone` | empty | Exact `zone_geographique_de_vente` filter |
 | `brand` | empty | Exact `marque_produit` filter |
 | `risk` | empty | Pipe-delimited risk token filter |
-| `dateStart` | empty | Inclusive `date_publication` lower bound |
-| `dateEnd` | empty | Inclusive `date_publication` upper bound |
+| `dateStart` | empty | Inclusive `date_publication` lower bound, formatted as `YYYY-MM-DD` or RFC 3339 |
+| `dateEnd` | empty | Inclusive `date_publication` upper bound, formatted as `YYYY-MM-DD` or RFC 3339 |
 
 ## Resources
 

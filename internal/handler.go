@@ -59,19 +59,15 @@ func RecallCollectionHandler(w http.ResponseWriter, r *http.Request) {
 	page := getQueryInt(r, "page", 1)
 	pageSize := getQueryInt(r, "pageSize", 20)
 
-	recalls, err := getRecallsFromRequest(r, page, pageSize)
+	recalls, err := getRecallsFromRequestWithLimit(r, page, pageSize, pageSize+1)
 	if err != nil {
 		http.Error(w, "Failed to fetch recalls: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	hasNext := false
-	if len(recalls) == pageSize {
-		hasNext, err = recallPageHasNext(r, page, pageSize)
-		if err != nil {
-			http.Error(w, "Failed to fetch recalls: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
+	hasNext := len(recalls) > pageSize
+	if hasNext {
+		recalls = recalls[:pageSize]
 	}
 
 	for i := range recalls {
@@ -393,6 +389,10 @@ func FiltersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getRecallsFromRequest(r *http.Request, page, pageSize int) ([]Recall, error) {
+	return getRecallsFromRequestWithLimit(r, page, pageSize, pageSize)
+}
+
+func getRecallsFromRequestWithLimit(r *http.Request, page, pageSize, limit int) ([]Recall, error) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	category := r.URL.Query().Get("category")
 	zone := r.URL.Query().Get("zone")
@@ -402,17 +402,9 @@ func getRecallsFromRequest(r *http.Request, page, pageSize int) ([]Recall, error
 	dateEnd := r.URL.Query().Get("dateEnd")
 
 	if q != "" {
-		return SearchRecalls(page, pageSize, q)
+		return SearchRecallsWithLimit(page, pageSize, limit, q)
 	}
-	return GetPaginatedRecallsFiltered(page, pageSize, category, zone, risk, brand, dateStart, dateEnd)
-}
-
-func recallPageHasNext(r *http.Request, page, pageSize int) (bool, error) {
-	recalls, err := getRecallsFromRequest(r, page+1, pageSize)
-	if err != nil {
-		return false, err
-	}
-	return len(recalls) > 0, nil
+	return GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit, category, zone, risk, brand, dateStart, dateEnd)
 }
 
 func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
@@ -461,9 +453,10 @@ func parseAcceptPart(part string) (string, float64) {
 			continue
 		}
 		parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
-		if err == nil && parsed >= 0 {
-			q = parsed
+		if err != nil || parsed < 0 || parsed > 1 {
+			return mediaRange, 0
 		}
+		q = parsed
 	}
 	return mediaRange, q
 }

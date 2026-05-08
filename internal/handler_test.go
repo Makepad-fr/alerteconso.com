@@ -142,4 +142,10 @@ func TestPrefersHTML(t *testing.T) {
 	if PrefersHTML(req) {
 		t.Fatal("expected wildcard Accept header to use JSON representation")
 	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "text/html;q=2,application/json")
+	if PrefersHTML(req) {
+		t.Fatal("expected invalid HTML q value to be ignored")
+	}
 }

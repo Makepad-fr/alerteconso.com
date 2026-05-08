@@ -127,10 +127,14 @@ func FetchRecalls() ([]Recall, error) {
 // SearchRecalls provides a single free-text entry point over common fields.
 // It does not alter existing handlers; you can call it when a `q` param is present.
 func SearchRecalls(page, pageSize int, q string) ([]Recall, error) {
+	return SearchRecallsWithLimit(page, pageSize, pageSize, q)
+}
+
+func SearchRecallsWithLimit(page, pageSize, limit int, q string) ([]Recall, error) {
 	offset := (page - 1) * pageSize
 	q = strings.TrimSpace(q)
 	if q == "" {
-		return GetPaginatedRecalls(page, pageSize)
+		return GetPaginatedRecallsWithLimit(page, pageSize, limit)
 	}
 
 	term := "%" + q + "%"
@@ -152,7 +156,7 @@ func SearchRecalls(page, pageSize int, q string) ([]Recall, error) {
 		)
 		ORDER BY date_publication DESC
 		LIMIT $2 OFFSET $3
-	`, term, pageSize, offset)
+	`, term, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -262,6 +266,10 @@ func UpsertRecall(r Recall) error {
 }
 
 func GetPaginatedRecalls(page int, pageSize int) ([]Recall, error) {
+	return GetPaginatedRecallsWithLimit(page, pageSize, pageSize)
+}
+
+func GetPaginatedRecallsWithLimit(page int, pageSize int, limit int) ([]Recall, error) {
 	offset := (page - 1) * pageSize
 	rows, err := DB.Query(`
 		SELECT
@@ -285,7 +293,7 @@ func GetPaginatedRecalls(page int, pageSize int) ([]Recall, error) {
 		FROM recalls
 		ORDER BY date_publication DESC
 		LIMIT $1 OFFSET $2
-	`, pageSize, offset)
+	`, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -445,6 +453,10 @@ func GetAllBrands() ([]string, error) {
 	return brands, nil
 }
 func GetPaginatedRecallsFiltered(page, pageSize int, category, zone, risk, brand string, dateStart, dateEnd string) ([]Recall, error) {
+	return GetPaginatedRecallsFilteredWithLimit(page, pageSize, pageSize, category, zone, risk, brand, dateStart, dateEnd)
+}
+
+func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, zone, risk, brand string, dateStart, dateEnd string) ([]Recall, error) {
 	offset := (page - 1) * pageSize
 
 	// Build dynamic query with parameters
@@ -495,7 +507,7 @@ func GetPaginatedRecallsFiltered(page, pageSize int, category, zone, risk, brand
 	}
 
 	query += ` ORDER BY date_publication DESC LIMIT $` + strconv.Itoa(argIdx) + ` OFFSET $` + strconv.Itoa(argIdx+1)
-	args = append(args, pageSize, offset)
+	args = append(args, limit, offset)
 
 	rows, err := DB.Query(query, args...)
 	if err != nil {

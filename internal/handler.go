@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 )
 
@@ -197,14 +197,10 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 	risk := r.URL.Query().Get("risk")
 	dateStart := r.URL.Query().Get("dateStart")
 	dateEnd := r.URL.Query().Get("dateEnd")
-	if err := validateDateFilters(dateStart, dateEnd); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 
 	recalls, err := getRecallsFromRequestWithLimit(r, page, pageSize, pageSize+1)
 	if err != nil {
-		http.Error(w, "Error loading recalls", http.StatusInternalServerError)
+		writeRecallsError(w, err)
 		return
 	}
 	hasNext := len(recalls) > pageSize

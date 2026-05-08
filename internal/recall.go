@@ -30,6 +30,10 @@ type RecallPageData struct {
 	Query            string
 	Page             int
 	PageSize         int
+	HasPrev          bool
+	HasNext          bool
+	PrevURL          string
+	NextURL          string
 }
 
 type RecallResponse struct {

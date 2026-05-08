@@ -202,18 +202,14 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var (
-		recalls []Recall
-		err     error
-	)
-	if q != "" {
-		recalls, err = SearchRecalls(page, pageSize, q)
-	} else {
-		recalls, err = GetPaginatedRecallsFiltered(page, pageSize, category, zone, risk, brand, dateStart, dateEnd)
-	}
+	recalls, err := getRecallsFromRequestWithLimit(r, page, pageSize, pageSize+1)
 	if err != nil {
 		http.Error(w, "Error loading recalls", http.StatusInternalServerError)
 		return
+	}
+	hasNext := len(recalls) > pageSize
+	if hasNext {
+		recalls = recalls[:pageSize]
 	}
 	// for dropdowns
 	categories, err := GetAllCategories()
@@ -261,6 +257,10 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 		Query:            q,
 		Page:             page,
 		PageSize:         pageSize,
+		HasPrev:          page > 1,
+		HasNext:          hasNext,
+		PrevURL:          paginatedURL("/recalls", r.URL.Query(), page-1, pageSize),
+		NextURL:          paginatedURL("/recalls", r.URL.Query(), page+1, pageSize),
 	}
 
 	err = tmpl.Execute(w, data)

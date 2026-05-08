@@ -207,6 +207,7 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 	if hasNext {
 		recalls = recalls[:pageSize]
 	}
+	prevURL, nextURL := paginationURLs("/recalls", r.URL.Query(), page, pageSize, hasNext)
 	// for dropdowns
 	categories, err := GetAllCategories()
 	if err != nil {
@@ -255,8 +256,8 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 		PageSize:         pageSize,
 		HasPrev:          page > 1,
 		HasNext:          hasNext,
-		PrevURL:          paginatedURL("/recalls", r.URL.Query(), page-1, pageSize),
-		NextURL:          paginatedURL("/recalls", r.URL.Query(), page+1, pageSize),
+		PrevURL:          prevURL,
+		NextURL:          nextURL,
 	}
 
 	err = tmpl.Execute(w, data)
@@ -609,6 +610,20 @@ func collectionLinks(path string, query url.Values, page, pageSize int, hasNext 
 		links = append(links, Link{Rel: "next", Href: paginatedURL(path, query, page+1, pageSize)})
 	}
 	return links
+}
+
+func paginationURLs(path string, query url.Values, page, pageSize int, hasNext bool) (string, string) {
+	prevURL := ""
+	if page > 1 {
+		prevURL = paginatedURL(path, query, page-1, pageSize)
+	}
+
+	nextURL := ""
+	if hasNext {
+		nextURL = paginatedURL(path, query, page+1, pageSize)
+	}
+
+	return prevURL, nextURL
 }
 
 func writeLinkHeader(w http.ResponseWriter, links []Link) {

@@ -60,6 +60,24 @@ func TestCollectionLinksOmitsNextWhenThereIsNoNextPage(t *testing.T) {
 	}
 }
 
+func TestPaginationURLsOnlySetAvailableLinks(t *testing.T) {
+	prevURL, nextURL := paginationURLs("/recalls", mapQuery("q", "fromage"), 1, 20, false)
+	if prevURL != "" {
+		t.Fatalf("expected no previous URL on the first page, got %q", prevURL)
+	}
+	if nextURL != "" {
+		t.Fatalf("expected no next URL without another page, got %q", nextURL)
+	}
+
+	prevURL, nextURL = paginationURLs("/recalls", mapQuery("q", "fromage"), 2, 20, true)
+	if prevURL != "/recalls?page=1&pageSize=20&q=fromage" {
+		t.Fatalf("expected previous URL with preserved query, got %q", prevURL)
+	}
+	if nextURL != "/recalls?page=3&pageSize=20&q=fromage" {
+		t.Fatalf("expected next URL with preserved query, got %q", nextURL)
+	}
+}
+
 func TestRecallCollectionHandlerRejectsOversizedPageSize(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/recalls?pageSize=101", nil)

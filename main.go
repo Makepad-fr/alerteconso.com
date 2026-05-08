@@ -52,6 +52,7 @@ func main() {
 			http.NotFound(w, r)
 			return
 		}
+		w.Header().Add("Vary", "Accept")
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

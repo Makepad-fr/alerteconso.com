@@ -43,6 +43,7 @@ func RecallsHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	w.Header().Add("Vary", "Accept")
 	if PrefersHTML(r) {
 		ListRecallsHandler(w, r)
 		return

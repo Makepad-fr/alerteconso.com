@@ -60,6 +60,17 @@ func TestCollectionLinksOmitsNextWhenThereIsNoNextPage(t *testing.T) {
 	}
 }
 
+func TestRecallsHandlerSetsVaryAccept(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/recalls", nil)
+
+	RecallsHandler(rr, req)
+
+	if got := rr.Header().Get("Vary"); got != "Accept" {
+		t.Fatalf("expected Vary header %q, got %q", "Accept", got)
+	}
+}
+
 func TestPaginationURLsOnlySetAvailableLinks(t *testing.T) {
 	prevURL, nextURL := paginationURLs("/recalls", mapQuery("q", "fromage"), 1, 20, false)
 	if prevURL != "" {

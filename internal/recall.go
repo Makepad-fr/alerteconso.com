@@ -180,7 +180,7 @@ func SearchRecallsWithLimit(page, pageSize, limit int, q string) ([]Recall, erro
 			identification_produits ILIKE $1 OR
 			numero_fiche ILIKE $1
 		)
-		ORDER BY date_publication DESC
+		ORDER BY recalls.date_publication DESC
 		LIMIT $2 OFFSET $3
 	`, term, limit, offset)
 	if err != nil {
@@ -212,7 +212,12 @@ func SearchRecallsWithLimit(page, pageSize, limit int, q string) ([]Recall, erro
 // Ensures that your DB is always up-to-date without duplicates
 
 func UpsertRecall(r Recall) error {
-	_, err := DB.Exec(`
+	datePublication, err := normalizeDatePublicationForDB(r.DatePublication)
+	if err != nil {
+		return err
+	}
+
+	_, err = DB.Exec(`
 		INSERT INTO recalls (
 			id, rappel_guid, numero_fiche, numero_version, nature_juridique_rappel,
 			categorie_produit, sous_categorie_produit, marque_produit, modeles_ou_references,
@@ -286,7 +291,7 @@ func UpsertRecall(r Recall) error {
 		r.NumeroContact, r.ModalitesDeCompensation, r.DateDeFinDeLaProcedureDeRappel,
 		r.InformationsComplementairesPubliques, r.LiensVersLesImagesRaw, r.LienVersLaListeDesProduits,
 		r.LienVersLaListeDesDistributeurs, r.LienVersAffichettePDF, r.LienVersLaFicheRappel,
-		r.DatePublication, r.Libelle,
+		datePublication, r.Libelle,
 	)
 	return err
 }
@@ -317,7 +322,7 @@ func GetPaginatedRecallsWithLimit(page int, pageSize int, limit int) ([]Recall, 
 			libelle,
 			`+datePublicationRFC3339SQL+` AS date_publication
 		FROM recalls
-		ORDER BY date_publication DESC
+		ORDER BY recalls.date_publication DESC
 		LIMIT $1 OFFSET $2
 	`, limit, offset)
 	if err != nil {
@@ -410,7 +415,7 @@ func GetPaginatedRecallsByCategory(page int, pageSize int, category string) ([]R
 		       `+datePublicationRFC3339SQL+` AS date_publication
 		FROM recalls
 		WHERE categorie_produit = $1
-		ORDER BY date_publication DESC
+		ORDER BY recalls.date_publication DESC
 		LIMIT $2 OFFSET $3
 	`, category, pageSize, offset)
 
@@ -532,7 +537,7 @@ func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, z
 		argIdx++
 	}
 
-	query += ` ORDER BY date_publication DESC LIMIT $` + strconv.Itoa(argIdx) + ` OFFSET $` + strconv.Itoa(argIdx+1)
+	query += ` ORDER BY recalls.date_publication DESC LIMIT $` + strconv.Itoa(argIdx) + ` OFFSET $` + strconv.Itoa(argIdx+1)
 	args = append(args, limit, offset)
 
 	rows, err := DB.Query(query, args...)

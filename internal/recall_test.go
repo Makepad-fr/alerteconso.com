@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
 )
 
 //Test... prefix = Go recognizes this function as a test
@@ -80,5 +81,24 @@ func TestFlexibleLinksAllowsEmptyObject(t *testing.T) {
 	}
 	if links != nil {
 		t.Fatalf("expected empty object to produce nil links, got %#v", links)
+	}
+}
+
+func TestNormalizeDatePublicationForDBConvertsOffsetsToUTC(t *testing.T) {
+	got, err := normalizeDatePublicationForDB("2026-05-08T02:30:00+02:00")
+	if err != nil {
+		t.Fatalf("expected valid date publication, got %v", err)
+	}
+	if !got.Valid {
+		t.Fatal("expected normalized date publication to be valid")
+	}
+	if formatted := got.Time.Format(time.RFC3339); formatted != "2026-05-08T00:30:00Z" {
+		t.Fatalf("expected UTC-normalized date publication, got %q", formatted)
+	}
+}
+
+func TestNormalizeDatePublicationForDBRejectsInvalidDate(t *testing.T) {
+	if _, err := normalizeDatePublicationForDB("not-a-date"); err == nil {
+		t.Fatal("expected invalid date publication to fail")
 	}
 }

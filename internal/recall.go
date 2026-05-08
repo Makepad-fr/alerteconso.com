@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -484,10 +485,14 @@ func GetAllBrands() ([]string, error) {
 	return brands, nil
 }
 func GetPaginatedRecallsFiltered(page, pageSize int, category, zone, risk, brand string, dateStart, dateEnd string) ([]Recall, error) {
-	return GetPaginatedRecallsFilteredWithLimit(page, pageSize, pageSize, category, zone, risk, brand, dateStart, dateEnd)
+	dateStartFilter, dateEndFilter, err := normalizeDateFilters(dateStart, dateEnd)
+	if err != nil {
+		return nil, err
+	}
+	return GetPaginatedRecallsFilteredWithLimit(page, pageSize, pageSize, category, zone, risk, brand, dateStartFilter, dateEndFilter)
 }
 
-func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, zone, risk, brand string, dateStart, dateEnd string) ([]Recall, error) {
+func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, zone, risk, brand string, dateStart, dateEnd sql.NullTime) ([]Recall, error) {
 	offset := (page - 1) * pageSize
 
 	// Build dynamic query with parameters
@@ -526,14 +531,14 @@ func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, z
 		args = append(args, brand)
 		argIdx++
 	}
-	if dateStart != "" {
+	if dateStart.Valid {
 		query += ` AND date_publication >= $` + strconv.Itoa(argIdx)
-		args = append(args, dateStart)
+		args = append(args, dateStart.Time)
 		argIdx++
 	}
-	if dateEnd != "" {
+	if dateEnd.Valid {
 		query += ` AND date_publication <= $` + strconv.Itoa(argIdx)
-		args = append(args, dateEnd)
+		args = append(args, dateEnd.Time)
 		argIdx++
 	}
 

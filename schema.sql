@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS recalls (
   lien_vers_la_liste_des_distributeurs TEXT,
   lien_vers_affichette_pdf TEXT,
   lien_vers_la_fiche_rappel TEXT,
-  date_publication TIMESTAMP, -- UTC-normalized at ingest
+  date_publication TIMESTAMPTZ,
   libelle TEXT,
   updated_at TIMESTAMP DEFAULT now()
 );

@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const maxRecallPageSize = 100
@@ -118,6 +117,7 @@ func RecallDetailHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "recall not found", http.StatusNotFound)
 			return
 		}
+		log.Printf("failed to load recall %d: %v", id, err)
 		http.Error(w, "failed to load recall", http.StatusInternalServerError)
 		return
 	}
@@ -413,14 +413,15 @@ func getRecallsFromRequestWithLimit(r *http.Request, page, pageSize, limit int) 
 	risk := r.URL.Query().Get("risk")
 	dateStart := r.URL.Query().Get("dateStart")
 	dateEnd := r.URL.Query().Get("dateEnd")
-	if err := validateDateFilters(dateStart, dateEnd); err != nil {
+	dateStartFilter, dateEndFilter, err := normalizeDateFilters(dateStart, dateEnd)
+	if err != nil {
 		return nil, err
 	}
 
 	if q != "" {
 		return SearchRecallsWithLimit(page, pageSize, limit, q)
 	}
-	return GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit, category, zone, risk, brand, dateStart, dateEnd)
+	return GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit, category, zone, risk, brand, dateStartFilter, dateEndFilter)
 }
 
 type requestValidationError string
@@ -437,34 +438,6 @@ func writeRecallsError(w http.ResponseWriter, err error) {
 	}
 	log.Printf("failed to fetch recalls: %v", err)
 	http.Error(w, "Failed to fetch recalls", http.StatusInternalServerError)
-}
-
-func validateDateFilters(dateStart, dateEnd string) error {
-	start, hasStart, err := parseDateFilter("dateStart", dateStart)
-	if err != nil {
-		return err
-	}
-	end, hasEnd, err := parseDateFilter("dateEnd", dateEnd)
-	if err != nil {
-		return err
-	}
-	if hasStart && hasEnd && start.After(end) {
-		return requestValidationError("dateStart must be before or equal to dateEnd")
-	}
-	return nil
-}
-
-func parseDateFilter(name, value string) (time.Time, bool, error) {
-	if value == "" {
-		return time.Time{}, false, nil
-	}
-	for _, layout := range []string{"2006-01-02", time.RFC3339, time.RFC3339Nano} {
-		parsed, err := time.Parse(layout, value)
-		if err == nil {
-			return parsed, true, nil
-		}
-	}
-	return time.Time{}, false, requestValidationError(fmt.Sprintf("%s must use YYYY-MM-DD or RFC3339 format", name))
 }
 
 func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {

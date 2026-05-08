@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 )
 
 // Optionally, mock FetchRecalls for the handler test
@@ -212,6 +213,19 @@ func TestValidateDateFilters(t *testing.T) {
 	}
 	if err := validateDateFilters("2026-05-09", "2026-05-08"); err == nil {
 		t.Fatal("expected inverted date range to fail")
+	}
+}
+
+func TestNormalizeDateFiltersConvertsOffsetsToUTC(t *testing.T) {
+	start, end, err := normalizeDateFilters("2026-05-08T02:30:00+02:00", "2026-05-09")
+	if err != nil {
+		t.Fatalf("expected valid date filters, got %v", err)
+	}
+	if !start.Valid || start.Time.Format(time.RFC3339) != "2026-05-08T00:30:00Z" {
+		t.Fatalf("expected UTC-normalized start filter, got %#v", start)
+	}
+	if !end.Valid || end.Time.Format(time.RFC3339) != "2026-05-09T00:00:00Z" {
+		t.Fatalf("expected UTC-normalized end filter, got %#v", end)
 	}
 }
 

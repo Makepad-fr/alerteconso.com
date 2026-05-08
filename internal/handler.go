@@ -179,6 +179,7 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	pageStr := r.URL.Query().Get("page")
 	page := 1

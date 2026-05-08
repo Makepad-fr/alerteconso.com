@@ -40,6 +40,8 @@ Supported by `GET /recalls`.
 | `dateStart` | empty | Inclusive `date_publication` lower bound, formatted as `YYYY-MM-DD` or RFC 3339 |
 | `dateEnd` | empty | Inclusive `date_publication` upper bound, formatted as `YYYY-MM-DD` or RFC 3339 |
 
+Responses serialize `date_publication` as an RFC 3339 UTC string formatted as `YYYY-MM-DDTHH:MM:SSZ`.
+
 ## Resources
 
 ### Service Entry Point
@@ -82,6 +84,7 @@ Returns a REST collection envelope.
       "numero_fiche": "sr/01361/26",
       "categorie_produit": "vêtements, mode, epi",
       "marque_produit": "xmgolong",
+      "date_publication": "2026-05-08T00:00:00Z",
       "libelle": "chaussures pour enfants",
       "_links": [
         { "rel": "self", "href": "/recalls/49788" },
@@ -118,6 +121,7 @@ Returns one recall resource with `_links`.
 {
   "id": 49788,
   "numero_fiche": "sr/01361/26",
+  "date_publication": "2026-05-08T00:00:00Z",
   "libelle": "chaussures pour enfants",
   "_links": [
     { "rel": "self", "href": "/recalls/49788" },

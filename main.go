@@ -40,17 +40,15 @@ func main() {
 		port = "8080"
 	}
 
-	http.HandleFunc("/api/recalls/", internal.RecallDetailHandler)
 	http.HandleFunc("/api/recalls", internal.APIRecallsHandler)
-	http.HandleFunc("/api/categories", internal.CategoriesHandler)
-	http.HandleFunc("/api/risks", internal.RisksHandler)
-	http.HandleFunc("/api/zones", internal.ZonesHandler)
-	http.HandleFunc("/api/brands", internal.BrandsHandler)
-	http.HandleFunc("/api/filters", internal.FiltersHandler)
+	http.HandleFunc("/api/recalls/categories", internal.CategoriesHandler)
+	http.HandleFunc("/api/recalls/risks", internal.RisksHandler)
+	http.HandleFunc("/api/recalls/zones", internal.ZonesHandler)
+	http.HandleFunc("/api/recalls/brands", internal.BrandsHandler)
+	http.HandleFunc("/api/recalls/filters", internal.FiltersHandler)
+	http.HandleFunc("/api/recalls/", internal.RecallDetailHandler)
 	http.HandleFunc("/api/", internal.APIRootHandler)
 	http.HandleFunc("/api", internal.APIRootHandler)
-	http.HandleFunc("/recalls/", internal.RecallDetailHandler)
-	http.HandleFunc("/recall/", internal.RecallDetailHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -69,16 +67,9 @@ func main() {
 		w.Header().Set("Content-Type", "image/png")
 		_, _ = w.Write(logoPNG)
 	})
-	http.HandleFunc("/recalls", internal.RecallsHTMLOrJSONHandler)
+	http.HandleFunc("/recalls", internal.RecallsPageHandler)
 	http.HandleFunc("/healthz", internal.HealthzHandler)
 	http.HandleFunc("/readyz", internal.ReadyzHandler)
-	http.HandleFunc("/categories", internal.CategoriesHandler)
-	http.HandleFunc("/risks", internal.RisksHandler)
-	http.HandleFunc("/zones", internal.ZonesHandler) // or /locations
-	http.HandleFunc("/brands", internal.BrandsHandler)
-
-	// optional all-in-one
-	http.HandleFunc("/filters", internal.FiltersHandler)
 	fmt.Printf("Listening on http://0.0.0.0:%s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

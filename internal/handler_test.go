@@ -10,15 +10,14 @@ import (
 // Optionally, mock FetchRecalls for the handler test
 // net/http/httptest is used to simulate real HTTP requests without a running server
 
-func TestRecallsHandler_StatusOK(t *testing.T) {
+func TestAPIRecallsHandlerStatusOK(t *testing.T) {
 	// ✅ Setup DB connection (same as your main.go)
 	InitDB(testDatabaseURL(t))
 
 	rr := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/recalls", nil)
+	req := httptest.NewRequest("GET", "/api/recalls", nil)
 
-	// 🧪 This will call FetchRecalls() and UpsertRecall() internally
-	RecallsHandler(rr, req)
+	APIRecallsHandler(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", rr.Code)
@@ -29,25 +28,6 @@ func mapQuery(key, value string) url.Values {
 	values := url.Values{}
 	values.Set(key, value)
 	return values
-}
-
-func TestWantsJSONKeepsLegacyAPIDefault(t *testing.T) {
-	req := httptest.NewRequest("GET", "/recalls", nil)
-	if !wantsJSON(req) {
-		t.Fatal("expected missing Accept header to return legacy JSON API")
-	}
-
-	req = httptest.NewRequest("GET", "/recalls", nil)
-	req.Header.Set("Accept", "*/*")
-	if !wantsJSON(req) {
-		t.Fatal("expected */* Accept header to return legacy JSON API")
-	}
-
-	req = httptest.NewRequest("GET", "/recalls", nil)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml")
-	if wantsJSON(req) {
-		t.Fatal("expected browser HTML Accept header to render HTML page")
-	}
 }
 
 func TestCollectionLinks(t *testing.T) {
@@ -95,15 +75,25 @@ func TestAttachRecallLinks(t *testing.T) {
 		got[link.Rel] = link.Href
 	}
 	for rel, href := range map[string]string{
-		"self":           "/recalls/123",
-		"api":            "/api/recalls/123",
-		"collection":     "/recalls",
-		"api-collection": "/api/recalls",
-		"official":       "https://rappel.conso.gouv.fr/fiche-rappel/123/interne",
-		"pdf":            "https://rappel.conso.gouv.fr/affichettepdf/123/interne",
+		"self":       "/api/recalls/123",
+		"collection": "/api/recalls",
+		"official":   "https://rappel.conso.gouv.fr/fiche-rappel/123/interne",
+		"pdf":        "https://rappel.conso.gouv.fr/affichettepdf/123/interne",
 	} {
 		if got[rel] != href {
 			t.Fatalf("expected %s link %q, got %q", rel, href, got[rel])
 		}
+	}
+}
+
+func TestRecallIDFromPathOnlyAcceptsCanonicalAPIPath(t *testing.T) {
+	if got := recallIDFromPath("/api/recalls/123"); got != "123" {
+		t.Fatalf("expected canonical API id 123, got %q", got)
+	}
+	if got := recallIDFromPath("/recall/123"); got != "" {
+		t.Fatalf("expected noncanonical recall path to be ignored, got %q", got)
+	}
+	if got := recallIDFromPath("/recalls/123"); got != "" {
+		t.Fatalf("expected web recall path to be ignored, got %q", got)
 	}
 }

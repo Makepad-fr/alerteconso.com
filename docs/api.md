@@ -2,47 +2,29 @@
 
 Base URL: `https://alerteconso.com`
 
-The API is read-only for public clients. Responses use JSON and expose HATEOAS links in `_links` fields or RFC 8288 `Link` headers.
-
-## Compatibility
-
-`GET /recalls` remains the legacy mobile API endpoint. It returns JSON unless the request explicitly asks for an HTML page with `Accept: text/html`.
-
-Examples:
-
-```http
-GET /recalls
-Accept: */*
-```
-
-returns the legacy JSON array.
-
-```http
-GET /recalls
-Accept: text/html
-```
-
-returns the browser HTML page.
-
-New integrations should prefer the canonical `/api` routes because their collection responses include pagination metadata and body-level HATEOAS links.
+The API is read-only for public clients and is scoped under `/api`. The `/recalls` route is the browser HTML page, not an API endpoint. API responses use JSON and expose HATEOAS links in `_links` fields and RFC 8288 `Link` headers.
 
 ## Link Relations
 
 | Relation | Meaning |
 | --- | --- |
 | `self` | Current resource URL |
-| `api` | Canonical API URL for a recall resource |
-| `collection` | Legacy recalls collection |
-| `api-collection` | Canonical recalls collection |
+| `collection` | Parent collection URL |
 | `first` | First page of a collection |
 | `prev` | Previous page, when available |
 | `next` | Next page, when available |
 | `official` | Official RappelConso recall page |
 | `pdf` | Official recall poster PDF |
+| `recalls` | Recall collection |
+| `recall-filters` | Combined filter metadata for recalls |
+| `recall-categories` | Recall category values |
+| `recall-risks` | Recall risk values |
+| `recall-zones` | Recall sale-zone values |
+| `recall-brands` | Recall brand values |
 
 ## Collection Query Parameters
 
-Supported by `GET /recalls` and `GET /api/recalls`.
+Supported by `GET /api/recalls`.
 
 | Parameter | Default | Description |
 | --- | --- | --- |
@@ -71,7 +53,11 @@ Returns discoverable API links.
   "_links": [
     { "rel": "self", "href": "/api" },
     { "rel": "recalls", "href": "/api/recalls" },
-    { "rel": "filters", "href": "/api/filters" }
+    { "rel": "recall-filters", "href": "/api/recalls/filters" },
+    { "rel": "recall-categories", "href": "/api/recalls/categories" },
+    { "rel": "recall-risks", "href": "/api/recalls/risks" },
+    { "rel": "recall-zones", "href": "/api/recalls/zones" },
+    { "rel": "recall-brands", "href": "/api/recalls/brands" }
   ]
 }
 ```
@@ -94,8 +80,8 @@ Returns a REST collection envelope.
       "marque_produit": "xmgolong",
       "libelle": "chaussures pour enfants",
       "_links": [
-        { "rel": "self", "href": "/recalls/49788" },
-        { "rel": "api", "href": "/api/recalls/49788" },
+        { "rel": "self", "href": "/api/recalls/49788" },
+        { "rel": "collection", "href": "/api/recalls" },
         { "rel": "official", "href": "https://rappel.conso.gouv.fr/fiche-rappel/49788/rapex" }
       ]
     }
@@ -115,51 +101,48 @@ Returns a REST collection envelope.
 
 The response also includes an HTTP `Link` header with the same collection navigation relations.
 
-### Legacy List Recalls
-
-```http
-GET /recalls?page=1&pageSize=20
-Accept: application/json
-```
-
-Returns the legacy JSON array for existing mobile clients. Each recall object still includes `_links`.
-
 ### Get Recall
 
 ```http
 GET /api/recalls/{id}
 ```
 
-Canonical detail endpoint.
+Returns one recall resource with `_links`.
 
-```http
-GET /recalls/{id}
-GET /recall/{id}
+```json
+{
+  "id": 49788,
+  "numero_fiche": "sr/01361/26",
+  "libelle": "chaussures pour enfants",
+  "_links": [
+    { "rel": "self", "href": "/api/recalls/49788" },
+    { "rel": "collection", "href": "/api/recalls" },
+    { "rel": "official", "href": "https://rappel.conso.gouv.fr/fiche-rappel/49788/rapex" },
+    { "rel": "pdf", "href": "https://rappel.conso.gouv.fr/affichettepdf/49788/rapex" }
+  ]
+}
 ```
 
-Legacy aliases. All three return the same recall representation with `_links`.
-
-### Filters
+### Recall Filter Metadata
 
 ```http
-GET /api/filters
-GET /api/categories
-GET /api/risks
-GET /api/zones
-GET /api/brands
+GET /api/recalls/filters
+GET /api/recalls/categories
+GET /api/recalls/risks
+GET /api/recalls/zones
+GET /api/recalls/brands
 ```
 
-Legacy aliases are also available without the `/api` prefix:
+Filter responses contain `data`, `count`, and `_links`, except `/api/recalls/filters`, which groups all filter arrays in one response.
+
+## Web Routes
 
 ```http
-GET /filters
-GET /categories
-GET /risks
-GET /zones
-GET /brands
+GET /
+GET /recalls
 ```
 
-Filter responses contain `data`, `count`, and `_links`.
+These routes return HTML and are not part of the JSON API.
 
 ## Status Endpoints
 

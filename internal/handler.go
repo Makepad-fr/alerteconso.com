@@ -24,54 +24,13 @@ func APIRootHandler(w http.ResponseWriter, r *http.Request) {
 		"_links": []Link{
 			{Rel: "self", Href: "/api"},
 			{Rel: "recalls", Href: "/api/recalls"},
-			{Rel: "html", Href: "/recalls"},
-			{Rel: "filters", Href: "/api/filters"},
-			{Rel: "categories", Href: "/api/categories"},
-			{Rel: "risks", Href: "/api/risks"},
-			{Rel: "zones", Href: "/api/zones"},
-			{Rel: "brands", Href: "/api/brands"},
+			{Rel: "recall-filters", Href: "/api/recalls/filters"},
+			{Rel: "recall-categories", Href: "/api/recalls/categories"},
+			{Rel: "recall-risks", Href: "/api/recalls/risks"},
+			{Rel: "recall-zones", Href: "/api/recalls/zones"},
+			{Rel: "recall-brands", Href: "/api/recalls/brands"},
 		},
 	}, http.StatusOK)
-}
-
-func RecallsHandler(w http.ResponseWriter, r *http.Request) {
-	if !requireMethod(w, r, http.MethodGet) {
-		return
-	}
-
-	page := getQueryInt(r, "page", 1)
-	pageSize := getQueryInt(r, "pageSize", 20)
-
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	category := r.URL.Query().Get("category")
-	zone := r.URL.Query().Get("zone")
-	brand := r.URL.Query().Get("brand")
-	risk := r.URL.Query().Get("risk")
-	dateStart := r.URL.Query().Get("dateStart")
-	dateEnd := r.URL.Query().Get("dateEnd")
-
-	var (
-		recalls []Recall
-		err     error
-	)
-	if q != "" {
-		recalls, err = SearchRecalls(page, pageSize, q)
-	} else {
-		recalls, err = GetPaginatedRecallsFiltered(page, pageSize, category, zone, risk, brand, dateStart, dateEnd)
-	}
-	if err != nil {
-		http.Error(w, "Failed to fetch recalls: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Attach links if you want to keep that behavior
-	for i := range recalls {
-		attachRecallLinks(&recalls[i])
-	}
-
-	writeCollectionLinkHeader(w, r.URL.Path, r.URL.Query(), page, pageSize, len(recalls))
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(recalls)
 }
 
 func APIRecallsHandler(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +76,7 @@ func RecallDetailHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := recallIDFromPath(r.URL.Path)
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "invalid recall ID", http.StatusBadRequest)
+		http.NotFound(w, r)
 		return
 	}
 
@@ -155,12 +114,7 @@ func ReadyzHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ready"))
 }
-func RecallsHTMLOrJSONHandler(w http.ResponseWriter, r *http.Request) {
-	if wantsJSON(r) {
-		RecallsHandler(w, r)
-		return
-	}
-
+func RecallsPageHandler(w http.ResponseWriter, r *http.Request) {
 	ListRecallsHandler(w, r)
 }
 
@@ -380,10 +334,10 @@ func FiltersHandler(w http.ResponseWriter, r *http.Request) {
 		"_links": []Link{
 			{Rel: "self", Href: r.URL.Path},
 			{Rel: "recalls", Href: "/api/recalls"},
-			{Rel: "categories", Href: "/api/categories"},
-			{Rel: "risks", Href: "/api/risks"},
-			{Rel: "zones", Href: "/api/zones"},
-			{Rel: "brands", Href: "/api/brands"},
+			{Rel: "recall-categories", Href: "/api/recalls/categories"},
+			{Rel: "recall-risks", Href: "/api/recalls/risks"},
+			{Rel: "recall-zones", Href: "/api/recalls/zones"},
+			{Rel: "recall-brands", Href: "/api/recalls/brands"},
 		},
 	}, http.StatusOK)
 }
@@ -403,17 +357,6 @@ func getRecallsFromRequest(r *http.Request, page, pageSize int) ([]Recall, error
 	return GetPaginatedRecallsFiltered(page, pageSize, category, zone, risk, brand, dateStart, dateEnd)
 }
 
-func wantsJSON(r *http.Request) bool {
-	accept := r.Header.Get("Accept")
-	if accept == "" || accept == "*/*" {
-		return true
-	}
-	if strings.Contains(accept, "application/json") || strings.Contains(accept, "application/hal+json") {
-		return true
-	}
-	return !strings.Contains(accept, "text/html")
-}
-
 func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
 	if r.Method == method {
 		return true
@@ -424,20 +367,17 @@ func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
 }
 
 func recallIDFromPath(path string) string {
-	for _, prefix := range []string{"/api/recalls/", "/recalls/", "/recall/"} {
-		if strings.HasPrefix(path, prefix) {
-			return strings.TrimPrefix(path, prefix)
-		}
+	const prefix = "/api/recalls/"
+	if strings.HasPrefix(path, prefix) {
+		return strings.TrimPrefix(path, prefix)
 	}
 	return ""
 }
 
 func attachRecallLinks(recall *Recall) {
 	links := FlexibleLinks{
-		{Rel: "self", Href: fmt.Sprintf("/recalls/%d", recall.ID)},
-		{Rel: "api", Href: fmt.Sprintf("/api/recalls/%d", recall.ID)},
-		{Rel: "collection", Href: "/recalls"},
-		{Rel: "api-collection", Href: "/api/recalls"},
+		{Rel: "self", Href: fmt.Sprintf("/api/recalls/%d", recall.ID)},
+		{Rel: "collection", Href: "/api/recalls"},
 	}
 	if recall.LienVersLaFicheRappel != "" {
 		links = append(links, Link{Rel: "official", Href: recall.LienVersLaFicheRappel})

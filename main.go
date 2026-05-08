@@ -52,6 +52,11 @@ func main() {
 			http.NotFound(w, r)
 			return
 		}
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", http.MethodGet)
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		if !internal.PrefersHTML(r) {
 			internal.RootHandler(w, r)
 			return

@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -94,7 +96,11 @@ func RecallDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	recall, err := GetRecallByID(id)
 	if err != nil {
-		http.Error(w, "recall not found", http.StatusNotFound)
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "recall not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to load recall", http.StatusInternalServerError)
 		return
 	}
 
@@ -330,10 +336,29 @@ func FiltersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cats, _ := GetAllCategories()
-	risks, _ := GetAllRisks()
-	zones, _ := GetAllZones()
-	brands, _ := GetAllBrands()
+	cats, err := GetAllCategories()
+	if err != nil {
+		http.Error(w, "failed to load categories: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	risks, err := GetAllRisks()
+	if err != nil {
+		http.Error(w, "failed to load risks: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	zones, err := GetAllZones()
+	if err != nil {
+		http.Error(w, "failed to load zones: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	brands, err := GetAllBrands()
+	if err != nil {
+		http.Error(w, "failed to load brands: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	writeJSON(w, map[string]any{
 		"categories": cats,

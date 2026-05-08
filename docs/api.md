@@ -103,7 +103,7 @@ Returns a REST collection envelope.
 }
 ```
 
-The response also includes an HTTP `Link` header with the same collection navigation relations.
+`page.count` is the number of items returned in the current page, not the total number of matching recalls. The response also includes an HTTP `Link` header with the same collection navigation relations. The `next` relation is only emitted when another page currently exists.
 
 ### Recall Resource
 

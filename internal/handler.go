@@ -65,12 +65,21 @@ func RecallCollectionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hasNext := false
+	if len(recalls) == pageSize {
+		hasNext, err = recallPageHasNext(r, page, pageSize)
+		if err != nil {
+			http.Error(w, "Failed to fetch recalls: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	for i := range recalls {
 		attachRecallLinks(&recalls[i])
 	}
 
-	links := collectionLinks("/recalls", r.URL.Query(), page, pageSize, len(recalls))
-	writeCollectionLinkHeader(w, "/recalls", r.URL.Query(), page, pageSize, len(recalls))
+	links := collectionLinks("/recalls", r.URL.Query(), page, pageSize, hasNext)
+	writeCollectionLinkHeader(w, "/recalls", r.URL.Query(), page, pageSize, hasNext)
 	writeJSON(w, RecallListResponse{
 		Data: recalls,
 		Page: PageMeta{
@@ -83,6 +92,13 @@ func RecallCollectionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func RecallDetailHandler(w http.ResponseWriter, r *http.Request) {
+	if redirectPath, ok := canonicalRecallPath(r.URL.Path); ok {
+		if r.URL.RawQuery != "" {
+			redirectPath += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, redirectPath, http.StatusPermanentRedirect)
+		return
+	}
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
@@ -391,6 +407,14 @@ func getRecallsFromRequest(r *http.Request, page, pageSize int) ([]Recall, error
 	return GetPaginatedRecallsFiltered(page, pageSize, category, zone, risk, brand, dateStart, dateEnd)
 }
 
+func recallPageHasNext(r *http.Request, page, pageSize int) (bool, error) {
+	recalls, err := getRecallsFromRequest(r, page+1, pageSize)
+	if err != nil {
+		return false, err
+	}
+	return len(recalls) > 0, nil
+}
+
 func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
 	if r.Method == method {
 		return true
@@ -452,6 +476,16 @@ func recallIDFromPath(path string) string {
 	return ""
 }
 
+func canonicalRecallPath(path string) (string, bool) {
+	if path == "/recalls/" {
+		return "/recalls", true
+	}
+	if strings.HasPrefix(path, "/recalls/") && strings.HasSuffix(path, "/") {
+		return strings.TrimRight(path, "/"), true
+	}
+	return "", false
+}
+
 func attachRecallLinks(recall *Recall) {
 	links := FlexibleLinks{
 		{Rel: "self", Href: fmt.Sprintf("/recalls/%d", recall.ID)},
@@ -466,7 +500,7 @@ func attachRecallLinks(recall *Recall) {
 	recall.Links = links
 }
 
-func collectionLinks(path string, query url.Values, page, pageSize, count int) []Link {
+func collectionLinks(path string, query url.Values, page, pageSize int, hasNext bool) []Link {
 	links := []Link{
 		{Rel: "self", Href: paginatedURL(path, query, page, pageSize)},
 		{Rel: "first", Href: paginatedURL(path, query, 1, pageSize)},
@@ -474,15 +508,15 @@ func collectionLinks(path string, query url.Values, page, pageSize, count int) [
 	if page > 1 {
 		links = append(links, Link{Rel: "prev", Href: paginatedURL(path, query, page-1, pageSize)})
 	}
-	if count >= pageSize {
+	if hasNext {
 		links = append(links, Link{Rel: "next", Href: paginatedURL(path, query, page+1, pageSize)})
 	}
 	return links
 }
 
-func writeCollectionLinkHeader(w http.ResponseWriter, path string, query url.Values, page, pageSize, count int) {
+func writeCollectionLinkHeader(w http.ResponseWriter, path string, query url.Values, page, pageSize int, hasNext bool) {
 	parts := make([]string, 0)
-	for _, link := range collectionLinks(path, query, page, pageSize, count) {
+	for _, link := range collectionLinks(path, query, page, pageSize, hasNext) {
 		parts = append(parts, fmt.Sprintf("<%s>; rel=%q", link.Href, link.Rel))
 	}
 	w.Header().Set("Link", strings.Join(parts, ", "))

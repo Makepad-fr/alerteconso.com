@@ -32,7 +32,7 @@ func mapQuery(key, value string) url.Values {
 
 func TestCollectionLinks(t *testing.T) {
 	query := mapQuery("q", "fromage")
-	links := collectionLinks("/recalls", query, 2, 20, 20)
+	links := collectionLinks("/recalls", query, 2, 20, true)
 
 	want := map[string]string{
 		"self":  "/recalls?page=2&pageSize=20&q=fromage",
@@ -48,6 +48,15 @@ func TestCollectionLinks(t *testing.T) {
 	}
 	if len(want) > 0 {
 		t.Fatalf("missing links: %#v", want)
+	}
+}
+
+func TestCollectionLinksOmitsNextWhenThereIsNoNextPage(t *testing.T) {
+	links := collectionLinks("/recalls", url.Values{}, 1, 20, false)
+	for _, link := range links {
+		if link.Rel == "next" {
+			t.Fatalf("expected no next link, got %q", link.Href)
+		}
 	}
 }
 
@@ -95,6 +104,23 @@ func TestRecallIDFromPathOnlyAcceptsCanonicalAPIPath(t *testing.T) {
 	}
 	if got := recallIDFromPath("/api/recalls/123"); got != "" {
 		t.Fatalf("expected namespaced API path to be ignored, got %q", got)
+	}
+}
+
+func TestCanonicalRecallPath(t *testing.T) {
+	for path, expected := range map[string]string{
+		"/recalls/":            "/recalls",
+		"/recalls/123/":        "/recalls/123",
+		"/recalls/categories/": "/recalls/categories",
+	} {
+		got, ok := canonicalRecallPath(path)
+		if !ok || got != expected {
+			t.Fatalf("expected %q to canonicalize to %q, got %q with ok=%v", path, expected, got, ok)
+		}
+	}
+
+	if got, ok := canonicalRecallPath("/recalls/123"); ok {
+		t.Fatalf("expected canonical path to be unchanged, got %q", got)
 	}
 }
 

@@ -164,7 +164,7 @@ func TestRequireMethodAllowsHeadForGetResources(t *testing.T) {
 }
 
 func TestValidateDateFilters(t *testing.T) {
-	if err := validateDateFilters("2026-05-01", "2026-05-08T00:00:00Z"); err != nil {
+	if err := validateDateFilters("2026-05-01", "2026-05-08T00:00:00.123Z"); err != nil {
 		t.Fatalf("expected valid date filters, got %v", err)
 	}
 	if err := validateDateFilters("not-a-date", ""); err == nil {

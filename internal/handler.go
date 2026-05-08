@@ -453,7 +453,7 @@ func parseDateFilter(name, value string) (time.Time, bool, error) {
 	if value == "" {
 		return time.Time{}, false, nil
 	}
-	for _, layout := range []string{"2006-01-02", time.RFC3339} {
+	for _, layout := range []string{"2006-01-02", time.RFC3339, time.RFC3339Nano} {
 		parsed, err := time.Parse(layout, value)
 		if err == nil {
 			return parsed, true, nil

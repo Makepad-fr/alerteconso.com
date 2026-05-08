@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const maxRecallPageSize = 100
+
 func RootHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -59,6 +61,10 @@ func RecallCollectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	page := getQueryInt(r, "page", 1)
 	pageSize := getQueryInt(r, "pageSize", 20)
+	if pageSize > maxRecallPageSize {
+		http.Error(w, fmt.Sprintf("pageSize must be less than or equal to %d", maxRecallPageSize), http.StatusBadRequest)
+		return
+	}
 
 	recalls, err := getRecallsFromRequestWithLimit(r, page, pageSize, pageSize+1)
 	if err != nil {
@@ -71,18 +77,16 @@ func RecallCollectionHandler(w http.ResponseWriter, r *http.Request) {
 		recalls = recalls[:pageSize]
 	}
 
-	for i := range recalls {
-		attachRecallLinks(&recalls[i])
-	}
+	summaries := recallSummaries(recalls)
 
 	links := collectionLinks("/recalls", r.URL.Query(), page, pageSize, hasNext)
 	writeCollectionLinkHeader(w, "/recalls", r.URL.Query(), page, pageSize, hasNext)
 	writeJSON(w, RecallListResponse{
-		Data: recalls,
+		Data: summaries,
 		Page: PageMeta{
 			Page:     page,
 			PageSize: pageSize,
-			Count:    len(recalls),
+			Count:    len(summaries),
 		},
 		Links: links,
 	}, http.StatusOK)
@@ -535,6 +539,48 @@ func canonicalRecallPath(path string) (string, bool) {
 }
 
 func attachRecallLinks(recall *Recall) {
+	links := FlexibleLinks{
+		{Rel: "self", Href: fmt.Sprintf("/recalls/%d", recall.ID)},
+		{Rel: "collection", Href: "/recalls"},
+	}
+	if recall.LienVersLaFicheRappel != "" {
+		links = append(links, Link{Rel: "official", Href: recall.LienVersLaFicheRappel})
+	}
+	if recall.LienVersAffichettePDF != "" {
+		links = append(links, Link{Rel: "pdf", Href: recall.LienVersAffichettePDF})
+	}
+	recall.Links = links
+}
+
+func recallSummaries(recalls []Recall) []RecallSummary {
+	summaries := make([]RecallSummary, 0, len(recalls))
+	for _, recall := range recalls {
+		summary := RecallSummary{
+			ID:                       recall.ID,
+			NumeroFiche:              recall.NumeroFiche,
+			CategorieProduit:         recall.CategorieProduit,
+			SousCategorieProduit:     recall.SousCategorieProduit,
+			MarqueProduit:            recall.MarqueProduit,
+			RisquesEncourus:          recall.RisquesEncourus,
+			MotifRappel:              recall.MotifRappel,
+			PreconisationsSanitaires: recall.PreconisationsSanitaires,
+			NumeroContact:            recall.NumeroContact,
+			Distributeurs:            recall.Distributeurs,
+			ModalitesDeCompensation:  recall.ModalitesDeCompensation,
+			ZoneGeographiqueDeVente:  recall.ZoneGeographiqueDeVente,
+			LiensVersLesImagesRaw:    recall.LiensVersLesImagesRaw,
+			LienVersAffichettePDF:    recall.LienVersAffichettePDF,
+			LienVersLaFicheRappel:    recall.LienVersLaFicheRappel,
+			DatePublication:          recall.DatePublication,
+			Libelle:                  recall.Libelle,
+		}
+		attachRecallSummaryLinks(&summary)
+		summaries = append(summaries, summary)
+	}
+	return summaries
+}
+
+func attachRecallSummaryLinks(recall *RecallSummary) {
 	links := FlexibleLinks{
 		{Rel: "self", Href: fmt.Sprintf("/recalls/%d", recall.ID)},
 		{Rel: "collection", Href: "/recalls"},

@@ -60,6 +60,17 @@ func TestCollectionLinksOmitsNextWhenThereIsNoNextPage(t *testing.T) {
 	}
 }
 
+func TestRecallCollectionHandlerRejectsOversizedPageSize(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/recalls?pageSize=101", nil)
+
+	RecallCollectionHandler(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", rr.Code)
+	}
+}
+
 func TestAttachRecallLinks(t *testing.T) {
 	recall := Recall{
 		ID:                       123,
@@ -92,6 +103,26 @@ func TestAttachRecallLinks(t *testing.T) {
 		if got[rel] != href {
 			t.Fatalf("expected %s link %q, got %q", rel, href, got[rel])
 		}
+	}
+}
+
+func TestRecallSummariesAttachLinks(t *testing.T) {
+	summaries := recallSummaries([]Recall{{
+		ID:                    123,
+		NumeroFiche:           "2026-05-0001",
+		LienVersLaFicheRappel: "https://rappel.conso.gouv.fr/fiche-rappel/123/interne",
+		LienVersAffichettePDF: "https://rappel.conso.gouv.fr/affichettepdf/123/interne",
+	}})
+
+	if len(summaries) != 1 {
+		t.Fatalf("expected one summary, got %d", len(summaries))
+	}
+	got := map[string]string{}
+	for _, link := range summaries[0].Links {
+		got[link.Rel] = link.Href
+	}
+	if got["self"] != "/recalls/123" || got["collection"] != "/recalls" || got["official"] == "" || got["pdf"] == "" {
+		t.Fatalf("unexpected summary links: %#v", got)
 	}
 }
 

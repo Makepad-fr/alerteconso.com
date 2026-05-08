@@ -31,7 +31,7 @@ Supported by `GET /recalls`.
 | Parameter | Default | Description |
 | --- | --- | --- |
 | `page` | `1` | 1-based page number |
-| `pageSize` | `20` | Number of recalls per page |
+| `pageSize` | `20` | Number of recalls per page, maximum `100` |
 | `q` | empty | Free-text search across label, brand, references, product identifiers, and recall number |
 | `category` | empty | Exact `categorie_produit` filter |
 | `zone` | empty | Exact `zone_geographique_de_vente` filter |

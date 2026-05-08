@@ -36,7 +36,10 @@ func GetRecallByID(id int) (Recall, error) {
 	err := DB.QueryRow(`
 		SELECT
 			id,
+			rappel_guid,
 			numero_fiche,
+			numero_version,
+			nature_juridique_rappel,
 			categorie_produit,
 			sous_categorie_produit,
 			marque_produit,
@@ -71,7 +74,10 @@ func GetRecallByID(id int) (Recall, error) {
 		WHERE id = $1
 	`, id).Scan(
 		&r.ID,
+		&r.RappelGUID,
 		&r.NumeroFiche,
+		&r.NumeroVersion,
+		&r.NatureJuridiqueRappel,
 		&r.CategorieProduit,
 		&r.SousCategorieProduit,
 		&r.MarqueProduit,

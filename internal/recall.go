@@ -48,9 +48,30 @@ type PageMeta struct {
 }
 
 type RecallListResponse struct {
-	Data  []Recall `json:"data"`
-	Page  PageMeta `json:"page"`
-	Links []Link   `json:"_links"`
+	Data  []RecallSummary `json:"data"`
+	Page  PageMeta        `json:"page"`
+	Links []Link          `json:"_links"`
+}
+
+type RecallSummary struct {
+	ID                       int           `json:"id"`
+	NumeroFiche              string        `json:"numero_fiche"`
+	CategorieProduit         string        `json:"categorie_produit"`
+	SousCategorieProduit     string        `json:"sous_categorie_produit"`
+	MarqueProduit            string        `json:"marque_produit"`
+	RisquesEncourus          string        `json:"risques_encourus"`
+	MotifRappel              string        `json:"motif_rappel"`
+	PreconisationsSanitaires string        `json:"preconisations_sanitaires"`
+	NumeroContact            string        `json:"numero_contact"`
+	Distributeurs            string        `json:"distributeurs"`
+	ModalitesDeCompensation  string        `json:"modalites_de_compensation"`
+	ZoneGeographiqueDeVente  string        `json:"zone_geographique_de_vente"`
+	LiensVersLesImagesRaw    string        `json:"liens_vers_les_images"`
+	LienVersAffichettePDF    string        `json:"lien_vers_affichette_pdf"`
+	LienVersLaFicheRappel    string        `json:"lien_vers_la_fiche_rappel"`
+	DatePublication          string        `json:"date_publication"`
+	Libelle                  string        `json:"libelle"`
+	Links                    FlexibleLinks `json:"_links"`
 }
 
 type Recall struct {

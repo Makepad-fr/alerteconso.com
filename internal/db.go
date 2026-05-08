@@ -19,11 +19,8 @@ func InitDB(connStr string) {
 		if err == nil {
 			err = DB.Ping()
 			if err == nil {
-				err = ensureRecallDatePublicationTimestamptz(DB)
-				if err == nil {
-					fmt.Println("✅ Connected to PostgreSQL")
-					return
-				}
+				fmt.Println("✅ Connected to PostgreSQL")
+				return
 			}
 		}
 
@@ -32,36 +29,6 @@ func InitDB(connStr string) {
 	}
 
 	log.Fatalf("❌ Failed to connect to DB after retries: %v", err)
-}
-
-func ensureRecallDatePublicationTimestamptz(db *sql.DB) error {
-	var dataType string
-	err := db.QueryRow(`
-		SELECT data_type
-		FROM information_schema.columns
-		WHERE table_schema = current_schema()
-			AND table_name = 'recalls'
-			AND column_name = 'date_publication'
-	`).Scan(&dataType)
-	if err == sql.ErrNoRows {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if dataType == "timestamp with time zone" {
-		return nil
-	}
-	if dataType != "timestamp without time zone" {
-		return fmt.Errorf("unsupported recalls.date_publication type %q", dataType)
-	}
-
-	_, err = db.Exec(`
-		ALTER TABLE recalls
-		ALTER COLUMN date_publication TYPE TIMESTAMPTZ
-		USING date_publication AT TIME ZONE 'UTC'
-	`)
-	return err
 }
 
 func GetRecallByID(id int) (Recall, error) {

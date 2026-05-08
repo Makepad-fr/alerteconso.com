@@ -102,3 +102,9 @@ func TestNormalizeDatePublicationForDBRejectsInvalidDate(t *testing.T) {
 		t.Fatal("expected invalid date publication to fail")
 	}
 }
+
+func TestNormalizeDatePublicationForDBRejectsMissingDate(t *testing.T) {
+	if _, err := normalizeDatePublicationForDB(""); err == nil {
+		t.Fatal("expected missing date publication to fail")
+	}
+}

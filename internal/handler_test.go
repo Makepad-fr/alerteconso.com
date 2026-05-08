@@ -224,7 +224,7 @@ func TestNormalizeDateFiltersConvertsOffsetsToUTC(t *testing.T) {
 	if !start.Valid || start.Time.Format(time.RFC3339) != "2026-05-08T00:30:00Z" {
 		t.Fatalf("expected UTC-normalized start filter, got %#v", start)
 	}
-	if !end.Valid || end.Time.Format(time.RFC3339) != "2026-05-09T00:00:00Z" {
+	if !end.Valid || !end.Exclusive || end.Time.Format(time.RFC3339) != "2026-05-10T00:00:00Z" {
 		t.Fatalf("expected UTC-normalized end filter, got %#v", end)
 	}
 }

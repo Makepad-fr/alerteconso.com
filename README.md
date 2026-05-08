@@ -14,4 +14,8 @@ Filters by **category, risk, zone, brand**, **date range**, and links to **offic
 
 See [docs/api.md](docs/api.md) for the REST API contract, HATEOAS links, query parameters, and examples.
 
+## Database Migrations
+
+Existing databases created before this API contract should apply SQL migrations from [migrations/](migrations/) before deploying the application.
+
 *Not affiliated with DGCCRF.*

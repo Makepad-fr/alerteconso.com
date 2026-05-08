@@ -35,3 +35,33 @@ func TestRecallUnmarshal(t *testing.T) {
 		t.Errorf("expected Libelle 'Test Recall', got %q", recall.Libelle)
 	}
 }
+
+func TestRecallUnmarshalV2IdentificationArray(t *testing.T) {
+	data := []byte(`[
+		{
+			"id": 49788,
+			"rappel_guid": "59671e743032024fdf5f4cadc6865df1a8371a0c",
+			"numero_fiche": "sr/01361/26",
+			"numero_version": 0,
+			"categorie_produit": "vêtements, mode, epi",
+			"sous_categorie_produit": "vêtements, textiles, accessoires de mode",
+			"marque_produit": "xmgolong",
+			"modeles_ou_references": "chaussures de sport pour enfants",
+			"identification_produits": ["gtin", "lot", "2026-05-08"],
+			"risques_encourus": "environnement|risque chimique",
+			"lien_vers_affichette_pdf": "https://rappel.conso.gouv.fr/affichettepdf/49788/rapex",
+			"lien_vers_la_fiche_rappel": "https://rappel.conso.gouv.fr/fiche-rappel/49788/rapex",
+			"date_publication": "2026-05-08T00:00:00+00:00",
+			"libelle": "chaussures pour enfants",
+			"_links": {}
+		}
+	]`)
+
+	var recalls []Recall
+	if err := json.Unmarshal(data, &recalls); err != nil {
+		t.Fatalf("failed to unmarshal v2 json: %v", err)
+	}
+	if got, want := recalls[0].IdentificationProduits.String(), "gtin | lot | 2026-05-08"; got != want {
+		t.Fatalf("expected identification products %q, got %q", want, got)
+	}
+}

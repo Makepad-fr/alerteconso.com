@@ -40,6 +40,16 @@ func main() {
 		port = "8080"
 	}
 
+	http.HandleFunc("/api/recalls/", internal.RecallDetailHandler)
+	http.HandleFunc("/api/recalls", internal.APIRecallsHandler)
+	http.HandleFunc("/api/categories", internal.CategoriesHandler)
+	http.HandleFunc("/api/risks", internal.RisksHandler)
+	http.HandleFunc("/api/zones", internal.ZonesHandler)
+	http.HandleFunc("/api/brands", internal.BrandsHandler)
+	http.HandleFunc("/api/filters", internal.FiltersHandler)
+	http.HandleFunc("/api/", internal.APIRootHandler)
+	http.HandleFunc("/api", internal.APIRootHandler)
+	http.HandleFunc("/recalls/", internal.RecallDetailHandler)
 	http.HandleFunc("/recall/", internal.RecallDetailHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {

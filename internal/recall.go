@@ -2,15 +2,18 @@ package internal
 
 import (
 	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // TODO: tum db querylerini logla ve ne kadar surdugunu logla
 // fmt yerine log. kullan loglamal icin
 const RappelURL = "https://www.data.gouv.fr/api/1/datasets/r/7b212733-7f5b-4ff3-b5b2-c7fea20f9cb1"
+
+var rappelHTTPClient = &http.Client{Timeout: 45 * time.Second}
 
 type RecallPageData struct {
 	Recalls          []Recall
@@ -37,72 +40,87 @@ type Link struct {
 	Rel  string `json:"rel"`
 	Href string `json:"href"`
 }
+
+type PageMeta struct {
+	Page     int `json:"page"`
+	PageSize int `json:"pageSize"`
+	Count    int `json:"count"`
+}
+
 type RecallListResponse struct {
-	Data  []RecallResponse `json:"data"`
-	Links []Link           `json:"_links"` // pagination
+	Data  []Recall `json:"data"`
+	Page  PageMeta `json:"page"`
+	Links []Link   `json:"_links"`
 }
 
 type Recall struct {
-	ID                                   int      `json:"id"`
-	RappelGUID                           string   `json:"rappel_guid"`
-	NumeroFiche                          string   `json:"numero_fiche"`
-	NumeroVersion                        int      `json:"numero_version"`
-	NatureJuridiqueRappel                string   `json:"nature_juridique_rappel"`
-	CategorieProduit                     string   `json:"categorie_produit"`
-	SousCategorieProduit                 string   `json:"sous_categorie_produit"`
-	MarqueProduit                        string   `json:"marque_produit"`
-	ModelesOuReferences                  string   `json:"modeles_ou_references"`
-	IdentificationProduits               string   `json:"identification_produits"`
-	Conditionnements                     string   `json:"conditionnements"`
-	DateDebutCommercialisation           string   `json:"date_debut_commercialisation"`
-	DateFinCommercialisation             string   `json:"date_date_fin_commercialisation"`
-	DateLimiteDeConsommation             *string  `json:"date_limite_de_consommation"`
-	TemperatureConservation              string   `json:"temperature_conservation"`
-	MarqueSalubrite                      *string  `json:"marque_salubrite"`
-	InformationsComplementaires          string   `json:"informations_complementaires"`
-	ZoneGeographiqueDeVente              string   `json:"zone_geographique_de_vente"`
-	Distributeurs                        string   `json:"distributeurs"`
-	MotifRappel                          string   `json:"motif_rappel"`
-	RisquesEncourus                      string   `json:"risques_encourus"`
-	PreconisationsSanitaires             string   `json:"preconisations_sanitaires"`
-	DescriptionComplementaireRisque      string   `json:"description_complementaire_risque"`
-	ConduitesATenirParLeConsommateur     string   `json:"conduites_a_tenir_par_le_consommateur"`
-	NumeroContact                        string   `json:"numero_contact"`
-	ModalitesDeCompensation              string   `json:"modalites_de_compensation"`
-	DateDeFinDeLaProcedureDeRappel       string   `json:"date_de_fin_de_la_procedure_de_rappel"`
-	InformationsComplementairesPubliques string   `json:"informations_complementaires_publiques"`
-	LiensVersLesImagesRaw                string   `json:"liens_vers_les_images"` // raw JSON string from API / DB
-	ImageURLs                            []string `json:"-"`                     // parsed URLs
+	ID                                   int          `json:"id"`
+	RappelGUID                           string       `json:"rappel_guid"`
+	NumeroFiche                          string       `json:"numero_fiche"`
+	NumeroVersion                        int          `json:"numero_version"`
+	NatureJuridiqueRappel                string       `json:"nature_juridique_rappel"`
+	CategorieProduit                     string       `json:"categorie_produit"`
+	SousCategorieProduit                 string       `json:"sous_categorie_produit"`
+	MarqueProduit                        string       `json:"marque_produit"`
+	ModelesOuReferences                  string       `json:"modeles_ou_references"`
+	IdentificationProduits               FlexibleText `json:"identification_produits"`
+	Conditionnements                     string       `json:"conditionnements"`
+	DateDebutCommercialisation           string       `json:"date_debut_commercialisation"`
+	DateFinCommercialisation             string       `json:"date_date_fin_commercialisation"`
+	DateLimiteDeConsommation             *string      `json:"date_limite_de_consommation"`
+	TemperatureConservation              string       `json:"temperature_conservation"`
+	MarqueSalubrite                      *string      `json:"marque_salubrite"`
+	InformationsComplementaires          string       `json:"informations_complementaires"`
+	ZoneGeographiqueDeVente              string       `json:"zone_geographique_de_vente"`
+	Distributeurs                        string       `json:"distributeurs"`
+	MotifRappel                          string       `json:"motif_rappel"`
+	RisquesEncourus                      string       `json:"risques_encourus"`
+	PreconisationsSanitaires             string       `json:"preconisations_sanitaires"`
+	DescriptionComplementaireRisque      string       `json:"description_complementaire_risque"`
+	ConduitesATenirParLeConsommateur     string       `json:"conduites_a_tenir_par_le_consommateur"`
+	NumeroContact                        string       `json:"numero_contact"`
+	ModalitesDeCompensation              string       `json:"modalites_de_compensation"`
+	DateDeFinDeLaProcedureDeRappel       string       `json:"date_de_fin_de_la_procedure_de_rappel"`
+	InformationsComplementairesPubliques string       `json:"informations_complementaires_publiques"`
+	LiensVersLesImagesRaw                string       `json:"liens_vers_les_images"` // raw JSON string from API / DB
+	ImageURLs                            []string     `json:"-"`                     // parsed URLs
 
-	LienVersLaListeDesProduits      *string `json:"lien_vers_la_liste_des_produits"`
-	LienVersLaListeDesDistributeurs *string `json:"lien_vers_la_liste_des_distributeurs"`
-	LienVersAffichettePDF           string  `json:"lien_vers_affichette_pdf"`
-	LienVersLaFicheRappel           string  `json:"lien_vers_la_fiche_rappel"`
-	DatePublication                 string  `json:"date_publication"`
-	Libelle                         string  `json:"libelle"`
-	Links                           []Link  `json:"_links"`
+	LienVersLaListeDesProduits      *string       `json:"lien_vers_la_liste_des_produits"`
+	LienVersLaListeDesDistributeurs *string       `json:"lien_vers_la_liste_des_distributeurs"`
+	LienVersAffichettePDF           string        `json:"lien_vers_affichette_pdf"`
+	LienVersLaFicheRappel           string        `json:"lien_vers_la_fiche_rappel"`
+	DatePublication                 string        `json:"date_publication"`
+	Libelle                         string        `json:"libelle"`
+	Links                           FlexibleLinks `json:"_links"`
 }
 
 func FetchRecalls() ([]Recall, error) {
-	// http.Get() downloads the JSON file from the website
-	resp, err := http.Get(RappelURL)
+	req, err := http.NewRequest(http.MethodGet, RappelURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "alerteconso.com/1.0")
+
+	resp, err := rappelHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	// reads the whole body into memory
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("upstream returned %s", resp.Status)
+	}
+
+	var recalls []Recall
+	if err := json.NewDecoder(resp.Body).Decode(&recalls); err != nil {
 		return nil, err
 	}
 
-	// json.Unmarshal() parses the JSON into a Go slice: []Recall
-	var recalls []Recall
-	err = json.Unmarshal(body, &recalls)
-	if err != nil {
-		return nil, err
+	for i := range recalls {
+		recalls[i].ImageURLs = parseImageURLs(recalls[i].LiensVersLesImagesRaw)
 	}
+
 	return recalls, nil
 }
 

@@ -7,7 +7,11 @@
 **AlerteConso** is a fast, responsive interface to explore French **product recalls** (official **RappelConso/DGCCRF** data).  
 Filters by **category, risk, zone, brand**, **date range**, and links to **official pages/PDFs**.
 
-- Endpoints: `/` (HTML), `/recalls` (JSON), `/healthz`, `/readyz`, `/__ping`
+- Endpoints: `/` (HTML), `/recalls` (HTML for browsers, JSON for API clients), `/api/recalls`, `/healthz`, `/readyz`
 - Quickstart: `docker compose up -d --build` → open `http://localhost:9092`
+
+## API
+
+See [docs/api.md](docs/api.md) for the REST API contract, HATEOAS links, legacy mobile compatibility behavior, query parameters, and examples.
 
 *Not affiliated with DGCCRF.*

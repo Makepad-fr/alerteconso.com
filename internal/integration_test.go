@@ -7,7 +7,7 @@ import (
 // ⚠️ Make sure InitDB is called in main_test.go or before running this test manually
 
 func TestFetchAndUpsertRecalls(t *testing.T) {
-	InitDB("postgres://rappeluser:rappelpass@localhost:5432/rappeldb?sslmode=disable")
+	InitDB(testDatabaseURL(t))
 
 	recalls, err := FetchRecalls()
 	if err != nil {

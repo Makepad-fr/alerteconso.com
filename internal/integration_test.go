@@ -4,8 +4,6 @@ import (
 	"testing"
 )
 
-// ⚠️ Make sure InitDB is called in main_test.go or before running this test manually
-
 func TestFetchAndUpsertRecalls(t *testing.T) {
 	InitDB(testDatabaseURL(t))
 

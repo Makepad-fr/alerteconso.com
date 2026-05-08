@@ -408,10 +408,14 @@ func getRecallsFromRequestWithLimit(r *http.Request, page, pageSize, limit int) 
 }
 
 func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
-	if r.Method == method {
+	if r.Method == method || (method == http.MethodGet && r.Method == http.MethodHead) {
 		return true
 	}
-	w.Header().Set("Allow", method)
+	allow := method
+	if method == http.MethodGet {
+		allow = "GET, HEAD"
+	}
+	w.Header().Set("Allow", allow)
 	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	return false
 }

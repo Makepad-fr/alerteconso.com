@@ -124,6 +124,14 @@ func TestCanonicalRecallPath(t *testing.T) {
 	}
 }
 
+func TestRequireMethodAllowsHeadForGetResources(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodHead, "/recalls", nil)
+	if !requireMethod(rr, req, http.MethodGet) {
+		t.Fatal("expected HEAD to be allowed for GET resource")
+	}
+}
+
 func TestPrefersHTML(t *testing.T) {
 	req := httptest.NewRequest("GET", "/recalls", nil)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")

@@ -68,7 +68,7 @@ func GetRecallByID(id int) (Recall, error) {
 			lien_vers_la_liste_des_distributeurs,
 			lien_vers_affichette_pdf,
 			lien_vers_la_fiche_rappel,
-			date_publication,
+			date_publication::text,
 			libelle
 		FROM recalls
 		WHERE id = $1

@@ -184,6 +184,11 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
 		page = p
 	}
+	pageSize := getQueryInt(r, "pageSize", 20)
+	if pageSize > maxRecallPageSize {
+		http.Error(w, fmt.Sprintf("pageSize must be less than or equal to %d", maxRecallPageSize), http.StatusBadRequest)
+		return
+	}
 
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	category := r.URL.Query().Get("category")
@@ -202,9 +207,9 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 		err     error
 	)
 	if q != "" {
-		recalls, err = SearchRecalls(page, 20, q)
+		recalls, err = SearchRecalls(page, pageSize, q)
 	} else {
-		recalls, err = GetPaginatedRecallsFiltered(page, 20, category, zone, risk, brand, dateStart, dateEnd)
+		recalls, err = GetPaginatedRecallsFiltered(page, pageSize, category, zone, risk, brand, dateStart, dateEnd)
 	}
 	if err != nil {
 		http.Error(w, "Error loading recalls", http.StatusInternalServerError)
@@ -255,6 +260,7 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 		DateEnd:          dateEnd,
 		Query:            q,
 		Page:             page,
+		PageSize:         pageSize,
 	}
 
 	err = tmpl.Execute(w, data)

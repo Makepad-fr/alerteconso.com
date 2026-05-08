@@ -71,6 +71,17 @@ func TestRecallCollectionHandlerRejectsOversizedPageSize(t *testing.T) {
 	}
 }
 
+func TestListRecallsHandlerRejectsOversizedPageSize(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/recalls?pageSize=101", nil)
+
+	ListRecallsHandler(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", rr.Code)
+	}
+}
+
 func TestAttachRecallLinks(t *testing.T) {
 	recall := Recall{
 		ID:                       123,

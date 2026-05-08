@@ -29,6 +29,7 @@ type RecallPageData struct {
 	DateEnd          string
 	Query            string
 	Page             int
+	PageSize         int
 }
 
 type RecallResponse struct {
@@ -166,7 +167,7 @@ func SearchRecallsWithLimit(page, pageSize, limit int, q string) ([]Recall, erro
 			preconisations_sanitaires, numero_contact, distributeurs,
 			modalites_de_compensation, zone_geographique_de_vente,
 			lien_vers_affichette_pdf, lien_vers_la_fiche_rappel,
-			liens_vers_les_images, libelle, date_publication
+			liens_vers_les_images, libelle, date_publication::text
 		FROM recalls
 		WHERE (
 			libelle ILIKE $1 OR
@@ -310,7 +311,7 @@ func GetPaginatedRecallsWithLimit(page int, pageSize int, limit int) ([]Recall, 
 			lien_vers_la_fiche_rappel,
 			liens_vers_les_images,
 			libelle,
-			date_publication
+			date_publication::text
 		FROM recalls
 		ORDER BY date_publication DESC
 		LIMIT $1 OFFSET $2
@@ -402,7 +403,7 @@ func GetPaginatedRecallsByCategory(page int, pageSize int, category string) ([]R
 		       preconisations_sanitaires, numero_contact, distributeurs,
 		       modalites_de_compensation, lien_vers_affichette_pdf,
 		       lien_vers_la_fiche_rappel, liens_vers_les_images, libelle,
-		       date_publication
+		       date_publication::text
 		FROM recalls
 		WHERE categorie_produit = $1
 		ORDER BY date_publication DESC
@@ -488,7 +489,7 @@ func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, z
 			preconisations_sanitaires, numero_contact, distributeurs,
 			modalites_de_compensation, zone_geographique_de_vente,
 			lien_vers_affichette_pdf, lien_vers_la_fiche_rappel,
-			liens_vers_les_images, libelle, date_publication
+			liens_vers_les_images, libelle, date_publication::text
 		FROM recalls
 		WHERE 1=1
 	`

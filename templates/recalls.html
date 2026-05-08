@@ -357,11 +357,11 @@ html[data-theme='dark'] .badge.brand {
 
     <nav class="pagination" aria-label="Navigation entre pages">
       {{ if gt .Page 1 }}
-        <a href="/?page={{minus .Page}}">← Précédent</a>
+        <a href="/recalls?page={{minus .Page}}&pageSize={{.PageSize}}">← Précédent</a>
       {{ end }}
       <span>Page {{ .Page }}</span>
       {{ if ge (len .Recalls) 20 }}
-        <a href="/?page={{add .Page}}">Suivant →</a>
+        <a href="/recalls?page={{add .Page}}&pageSize={{.PageSize}}">Suivant →</a>
       {{ end }}
     </nav>
   </div>

@@ -402,10 +402,6 @@ func FiltersHandler(w http.ResponseWriter, r *http.Request) {
 	}, http.StatusOK)
 }
 
-func getRecallsFromRequest(r *http.Request, page, pageSize int) ([]Recall, error) {
-	return getRecallsFromRequestWithLimit(r, page, pageSize, pageSize)
-}
-
 func getRecallsFromRequestWithLimit(r *http.Request, page, pageSize, limit int) ([]Recall, error) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	category := r.URL.Query().Get("category")

@@ -204,6 +204,9 @@ func SearchRecallsWithLimit(page, pageSize, limit int, q string) ([]Recall, erro
 		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
 		recalls = append(recalls, r)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return recalls, nil
 }
 
@@ -359,6 +362,9 @@ func GetPaginatedRecallsWithLimit(page int, pageSize int, limit int) ([]Recall, 
 
 		recalls = append(recalls, r)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return recalls, nil
 }
@@ -382,6 +388,9 @@ func GetAllRisks() ([]string, error) {
 		}
 		risks = append(risks, risk)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return risks, nil
 }
 
@@ -401,6 +410,9 @@ func GetAllCategories() ([]string, error) {
 		if cat != "" {
 			categories = append(categories, cat)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return categories, nil
 }
@@ -442,6 +454,9 @@ func GetPaginatedRecallsByCategory(page int, pageSize int, category string) ([]R
 
 		recalls = append(recalls, r)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return recalls, nil
 }
 func GetAllZones() ([]string, error) {
@@ -460,6 +475,9 @@ func GetAllZones() ([]string, error) {
 		if zone != "" {
 			zones = append(zones, zone)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return zones, nil
 }
@@ -480,6 +498,9 @@ func GetAllBrands() ([]string, error) {
 		if brand != "" {
 			brands = append(brands, brand)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return brands, nil
 }
@@ -570,6 +591,9 @@ func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, z
 		}
 		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
 		recalls = append(recalls, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return recalls, nil
 }

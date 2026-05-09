@@ -130,7 +130,7 @@ func TestBuildRecallsCollectionQueryCombinesSearchAndFilters(t *testing.T) {
 		"libelle ILIKE $1",
 		"categorie_produit = $2",
 		"zone_geographique_de_vente = $3",
-		"risques_encourus || '|') ILIKE '%' || '|' || $4 || '|' || '%'",
+		"('|' || risques_encourus || '|') ILIKE '%' || '|' || $4 || '|' || '%'",
 		"marque_produit = $5",
 		"recalls.date_publication >= $6",
 		"recalls.date_publication < $7",

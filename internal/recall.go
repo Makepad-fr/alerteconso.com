@@ -167,8 +167,10 @@ func SearchRecallsWithLimit(page, pageSize, limit int, q string) ([]Recall, erro
 	rows, err := DB.Query(`
 		SELECT
 			id, numero_fiche, categorie_produit, sous_categorie_produit,
-			marque_produit, risques_encourus, motif_rappel,
-			preconisations_sanitaires, numero_contact, distributeurs,
+			marque_produit, modeles_ou_references, identification_produits,
+			risques_encourus, motif_rappel,
+			preconisations_sanitaires, conduites_a_tenir_par_le_consommateur,
+			numero_contact, distributeurs,
 			modalites_de_compensation, zone_geographique_de_vente,
 			lien_vers_affichette_pdf, lien_vers_la_fiche_rappel,
 			liens_vers_les_images, libelle, `+datePublicationRFC3339SQL+` AS date_publication
@@ -193,8 +195,10 @@ func SearchRecallsWithLimit(page, pageSize, limit int, q string) ([]Recall, erro
 		var r Recall
 		if err := rows.Scan(
 			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
-			&r.MarqueProduit, &r.RisquesEncourus, &r.MotifRappel,
-			&r.PreconisationsSanitaires, &r.NumeroContact, &r.Distributeurs,
+			&r.MarqueProduit, &r.ModelesOuReferences, &r.IdentificationProduits,
+			&r.RisquesEncourus, &r.MotifRappel,
+			&r.PreconisationsSanitaires, &r.ConduitesATenirParLeConsommateur,
+			&r.NumeroContact, &r.Distributeurs,
 			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente,
 			&r.LienVersAffichettePDF, &r.LienVersLaFicheRappel,
 			&r.LiensVersLesImagesRaw, &r.Libelle, &r.DatePublication,
@@ -312,9 +316,12 @@ func GetPaginatedRecallsWithLimit(page int, pageSize int, limit int) ([]Recall, 
 			categorie_produit,
 			sous_categorie_produit,
 			marque_produit,
+			modeles_ou_references,
+			identification_produits,
 			risques_encourus,
 			motif_rappel,
 			preconisations_sanitaires,
+			conduites_a_tenir_par_le_consommateur,
 			numero_contact,
 			distributeurs,
 			modalites_de_compensation,
@@ -342,9 +349,12 @@ func GetPaginatedRecallsWithLimit(page int, pageSize int, limit int) ([]Recall, 
 			&r.CategorieProduit,
 			&r.SousCategorieProduit,
 			&r.MarqueProduit,
+			&r.ModelesOuReferences,
+			&r.IdentificationProduits,
 			&r.RisquesEncourus,
 			&r.MotifRappel,
 			&r.PreconisationsSanitaires,
+			&r.ConduitesATenirParLeConsommateur,
 			&r.NumeroContact,
 			&r.Distributeurs,
 			&r.ModalitesDeCompensation,
@@ -420,9 +430,11 @@ func GetPaginatedRecallsByCategory(page int, pageSize int, category string) ([]R
 	offset := (page - 1) * pageSize
 	rows, err := DB.Query(`
 		SELECT id, numero_fiche, categorie_produit, sous_categorie_produit,
-		       marque_produit, risques_encourus, motif_rappel,
-		       preconisations_sanitaires, numero_contact, distributeurs,
-		       modalites_de_compensation, lien_vers_affichette_pdf,
+		       marque_produit, modeles_ou_references, identification_produits,
+		       risques_encourus, motif_rappel,
+		       preconisations_sanitaires, conduites_a_tenir_par_le_consommateur,
+		       numero_contact, distributeurs,
+		       modalites_de_compensation, zone_geographique_de_vente, lien_vers_affichette_pdf,
 		       lien_vers_la_fiche_rappel, liens_vers_les_images, libelle,
 		       `+datePublicationRFC3339SQL+` AS date_publication
 		FROM recalls
@@ -441,9 +453,11 @@ func GetPaginatedRecallsByCategory(page int, pageSize int, category string) ([]R
 		var r Recall
 		err := rows.Scan(
 			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
-			&r.MarqueProduit, &r.RisquesEncourus, &r.MotifRappel,
-			&r.PreconisationsSanitaires, &r.NumeroContact, &r.Distributeurs,
-			&r.ModalitesDeCompensation, &r.LienVersAffichettePDF,
+			&r.MarqueProduit, &r.ModelesOuReferences, &r.IdentificationProduits,
+			&r.RisquesEncourus, &r.MotifRappel,
+			&r.PreconisationsSanitaires, &r.ConduitesATenirParLeConsommateur,
+			&r.NumeroContact, &r.Distributeurs,
+			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente, &r.LienVersAffichettePDF,
 			&r.LienVersLaFicheRappel, &r.LiensVersLesImagesRaw, &r.Libelle,
 			&r.DatePublication,
 		)
@@ -519,8 +533,10 @@ func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, z
 	query := `
 		SELECT
 			id, numero_fiche, categorie_produit, sous_categorie_produit,
-			marque_produit, risques_encourus, motif_rappel,
-			preconisations_sanitaires, numero_contact, distributeurs,
+			marque_produit, modeles_ou_references, identification_produits,
+			risques_encourus, motif_rappel,
+			preconisations_sanitaires, conduites_a_tenir_par_le_consommateur,
+			numero_contact, distributeurs,
 			modalites_de_compensation, zone_geographique_de_vente,
 			lien_vers_affichette_pdf, lien_vers_la_fiche_rappel,
 			liens_vers_les_images, libelle, ` + datePublicationRFC3339SQL + ` AS date_publication
@@ -580,8 +596,10 @@ func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, z
 		var r Recall
 		err := rows.Scan(
 			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
-			&r.MarqueProduit, &r.RisquesEncourus, &r.MotifRappel,
-			&r.PreconisationsSanitaires, &r.NumeroContact, &r.Distributeurs,
+			&r.MarqueProduit, &r.ModelesOuReferences, &r.IdentificationProduits,
+			&r.RisquesEncourus, &r.MotifRappel,
+			&r.PreconisationsSanitaires, &r.ConduitesATenirParLeConsommateur,
+			&r.NumeroContact, &r.Distributeurs,
 			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente,
 			&r.LienVersAffichettePDF, &r.LienVersLaFicheRappel,
 			&r.LiensVersLesImagesRaw, &r.Libelle, &r.DatePublication,

@@ -157,61 +157,18 @@ func SearchRecalls(page, pageSize int, q string) ([]Recall, error) {
 }
 
 func SearchRecallsWithLimit(page, pageSize, limit int, q string) ([]Recall, error) {
-	offset := (page - 1) * pageSize
-	q = strings.TrimSpace(q)
-	if q == "" {
-		return GetPaginatedRecallsWithLimit(page, pageSize, limit)
-	}
-
-	term := "%" + q + "%"
-	rows, err := DB.Query(`
-		SELECT
-			id, numero_fiche, categorie_produit, sous_categorie_produit,
-			marque_produit, modeles_ou_references, identification_produits,
-			risques_encourus, motif_rappel,
-			preconisations_sanitaires, conduites_a_tenir_par_le_consommateur,
-			numero_contact, distributeurs,
-			modalites_de_compensation, zone_geographique_de_vente,
-			lien_vers_affichette_pdf, lien_vers_la_fiche_rappel,
-			liens_vers_les_images, libelle, `+datePublicationRFC3339SQL+` AS date_publication
-		FROM recalls
-		WHERE (
-			libelle ILIKE $1 OR
-			marque_produit ILIKE $1 OR
-			modeles_ou_references ILIKE $1 OR
-			identification_produits ILIKE $1 OR
-			numero_fiche ILIKE $1
-		)
-		ORDER BY recalls.date_publication DESC
-		LIMIT $2 OFFSET $3
-	`, term, limit, offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var recalls []Recall
-	for rows.Next() {
-		var r Recall
-		if err := rows.Scan(
-			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
-			&r.MarqueProduit, &r.ModelesOuReferences, &r.IdentificationProduits,
-			&r.RisquesEncourus, &r.MotifRappel,
-			&r.PreconisationsSanitaires, &r.ConduitesATenirParLeConsommateur,
-			&r.NumeroContact, &r.Distributeurs,
-			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente,
-			&r.LienVersAffichettePDF, &r.LienVersLaFicheRappel,
-			&r.LiensVersLesImagesRaw, &r.Libelle, &r.DatePublication,
-		); err != nil {
-			return nil, err
-		}
-		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
-		recalls = append(recalls, r)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return recalls, nil
+	return GetPaginatedRecallsFilteredWithSearchWithLimit(
+		page,
+		pageSize,
+		limit,
+		q,
+		"",
+		"",
+		"",
+		"",
+		dateFilterBound{},
+		dateFilterBound{},
+	)
 }
 
 // for each recall, inserts into the recalls table
@@ -527,9 +484,45 @@ func GetPaginatedRecallsFiltered(page, pageSize int, category, zone, risk, brand
 }
 
 func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, zone, risk, brand string, dateStart, dateEnd dateFilterBound) ([]Recall, error) {
-	offset := (page - 1) * pageSize
+	return GetPaginatedRecallsFilteredWithSearchWithLimit(page, pageSize, limit, "", category, zone, risk, brand, dateStart, dateEnd)
+}
 
-	// Build dynamic query with parameters
+func GetPaginatedRecallsFilteredWithSearchWithLimit(page, pageSize, limit int, q, category, zone, risk, brand string, dateStart, dateEnd dateFilterBound) ([]Recall, error) {
+	offset := (page - 1) * pageSize
+	query, args := buildRecallsCollectionQuery(limit, offset, q, category, zone, risk, brand, dateStart, dateEnd)
+
+	rows, err := DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var recalls []Recall
+	for rows.Next() {
+		var r Recall
+		err := rows.Scan(
+			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
+			&r.MarqueProduit, &r.ModelesOuReferences, &r.IdentificationProduits,
+			&r.RisquesEncourus, &r.MotifRappel,
+			&r.PreconisationsSanitaires, &r.ConduitesATenirParLeConsommateur,
+			&r.NumeroContact, &r.Distributeurs,
+			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente,
+			&r.LienVersAffichettePDF, &r.LienVersLaFicheRappel,
+			&r.LiensVersLesImagesRaw, &r.Libelle, &r.DatePublication,
+		)
+		if err != nil {
+			return nil, err
+		}
+		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
+		recalls = append(recalls, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return recalls, nil
+}
+
+func buildRecallsCollectionQuery(limit, offset int, q, category, zone, risk, brand string, dateStart, dateEnd dateFilterBound) (string, []interface{}) {
 	query := `
 		SELECT
 			id, numero_fiche, categorie_produit, sous_categorie_produit,
@@ -546,6 +539,18 @@ func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, z
 	args := []interface{}{}
 	argIdx := 1
 
+	q = strings.TrimSpace(q)
+	if q != "" {
+		query += ` AND (
+			libelle ILIKE $` + strconv.Itoa(argIdx) + ` OR
+			marque_produit ILIKE $` + strconv.Itoa(argIdx) + ` OR
+			modeles_ou_references ILIKE $` + strconv.Itoa(argIdx) + ` OR
+			identification_produits ILIKE $` + strconv.Itoa(argIdx) + ` OR
+			numero_fiche ILIKE $` + strconv.Itoa(argIdx) + `
+		)`
+		args = append(args, "%"+q+"%")
+		argIdx++
+	}
 	if category != "" {
 		query += ` AND categorie_produit = $` + strconv.Itoa(argIdx)
 		args = append(args, category)
@@ -585,33 +590,5 @@ func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, z
 	query += ` ORDER BY recalls.date_publication DESC LIMIT $` + strconv.Itoa(argIdx) + ` OFFSET $` + strconv.Itoa(argIdx+1)
 	args = append(args, limit, offset)
 
-	rows, err := DB.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var recalls []Recall
-	for rows.Next() {
-		var r Recall
-		err := rows.Scan(
-			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
-			&r.MarqueProduit, &r.ModelesOuReferences, &r.IdentificationProduits,
-			&r.RisquesEncourus, &r.MotifRappel,
-			&r.PreconisationsSanitaires, &r.ConduitesATenirParLeConsommateur,
-			&r.NumeroContact, &r.Distributeurs,
-			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente,
-			&r.LienVersAffichettePDF, &r.LienVersLaFicheRappel,
-			&r.LiensVersLesImagesRaw, &r.Libelle, &r.DatePublication,
-		)
-		if err != nil {
-			return nil, err
-		}
-		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
-		recalls = append(recalls, r)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return recalls, nil
+	return query, args
 }

@@ -40,6 +40,8 @@ Supported by `GET /recalls`.
 | `dateStart` | empty | Inclusive `date_publication` lower bound, formatted as `YYYY-MM-DD` or RFC 3339 |
 | `dateEnd` | empty | Inclusive `date_publication` upper bound, formatted as `YYYY-MM-DD` or RFC 3339 |
 
+When multiple query parameters are supplied, they are combined with AND semantics. For example, `q=fromage&category=alimentation&risk=listeria` returns recalls matching the free-text search and all supplied filters.
+
 Responses serialize `date_publication` as an RFC 3339 UTC string formatted as `YYYY-MM-DDTHH:MM:SSZ`.
 
 ## Resources

@@ -3,6 +3,7 @@ package internal
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -106,5 +107,47 @@ func TestNormalizeDatePublicationForDBRejectsInvalidDate(t *testing.T) {
 func TestNormalizeDatePublicationForDBRejectsMissingDate(t *testing.T) {
 	if _, err := normalizeDatePublicationForDB(""); err == nil {
 		t.Fatal("expected missing date publication to fail")
+	}
+}
+
+func TestBuildRecallsCollectionQueryCombinesSearchAndFilters(t *testing.T) {
+	start := dateFilterBound{Time: time.Date(2026, 5, 8, 0, 0, 0, 0, time.UTC), Valid: true}
+	end := dateFilterBound{Time: time.Date(2026, 5, 9, 0, 0, 0, 0, time.UTC), Valid: true, Exclusive: true}
+
+	query, args := buildRecallsCollectionQuery(
+		21,
+		40,
+		" fromage ",
+		"alimentation",
+		"France",
+		"listeria",
+		"Brand",
+		start,
+		end,
+	)
+
+	for _, fragment := range []string{
+		"libelle ILIKE $1",
+		"categorie_produit = $2",
+		"zone_geographique_de_vente = $3",
+		"risques_encourus || '|') ILIKE '%' || '|' || $4 || '|' || '%'",
+		"marque_produit = $5",
+		"date_publication >= $6",
+		"date_publication < $7",
+		"LIMIT $8 OFFSET $9",
+	} {
+		if !strings.Contains(query, fragment) {
+			t.Fatalf("expected query to contain %q, got %s", fragment, query)
+		}
+	}
+
+	if len(args) != 9 {
+		t.Fatalf("expected 9 query args, got %d: %#v", len(args), args)
+	}
+	if args[0] != "%fromage%" || args[1] != "alimentation" || args[2] != "France" || args[3] != "listeria" || args[4] != "Brand" {
+		t.Fatalf("unexpected filter args: %#v", args[:5])
+	}
+	if args[5] != start.Time || args[6] != end.Time || args[7] != 21 || args[8] != 40 {
+		t.Fatalf("unexpected pagination/date args: %#v", args[5:])
 	}
 }

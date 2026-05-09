@@ -415,10 +415,7 @@ func getRecallsFromRequestWithLimit(r *http.Request, page, pageSize, limit int) 
 		return nil, err
 	}
 
-	if q != "" {
-		return SearchRecallsWithLimit(page, pageSize, limit, q)
-	}
-	return GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit, category, zone, risk, brand, dateStartFilter, dateEndFilter)
+	return GetPaginatedRecallsFilteredWithSearchWithLimit(page, pageSize, limit, q, category, zone, risk, brand, dateStartFilter, dateEndFilter)
 }
 
 type requestValidationError string

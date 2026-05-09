@@ -314,6 +314,18 @@ func TestPrefersHTML(t *testing.T) {
 	}
 
 	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "text/html, */*")
+	if !PrefersHTML(req) {
+		t.Fatal("expected explicit HTML Accept token to beat wildcard JSON match")
+	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "text/*, application/json")
+	if PrefersHTML(req) {
+		t.Fatal("expected explicit JSON Accept token to beat text wildcard match")
+	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
 	req.Header.Set("Accept", "text/html;q=2,application/json")
 	if PrefersHTML(req) {
 		t.Fatal("expected invalid HTML q value to be ignored")

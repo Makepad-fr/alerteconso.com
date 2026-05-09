@@ -452,26 +452,44 @@ func PrefersHTML(r *http.Request) bool {
 	if accept == "" {
 		return false
 	}
-	htmlQ := acceptedQuality(accept, "text/html")
-	jsonQ := acceptedQuality(accept, "application/json")
-	return htmlQ > jsonQ
+	html := acceptedQuality(accept, "text/html")
+	json := acceptedQuality(accept, "application/json")
+	if html.Q != json.Q {
+		return html.Q > json.Q
+	}
+	return html.Specificity > json.Specificity
 }
 
-func acceptedQuality(accept, target string) float64 {
-	maxQ := 0.0
+type acceptedMedia struct {
+	Q           float64
+	Specificity int
+}
+
+func acceptedQuality(accept, target string) acceptedMedia {
+	best := acceptedMedia{}
 	targetType, _, _ := strings.Cut(target, "/")
 	for _, part := range strings.Split(accept, ",") {
 		mediaRange, q := parseAcceptPart(part)
 		if mediaRange == "" {
 			continue
 		}
-		if mediaRange == target || mediaRange == "*/*" || mediaRange == targetType+"/*" {
-			if q > maxQ {
-				maxQ = q
-			}
+		specificity := -1
+		switch mediaRange {
+		case target:
+			specificity = 2
+		case targetType + "/*":
+			specificity = 1
+		case "*/*":
+			specificity = 0
+		}
+		if specificity == -1 {
+			continue
+		}
+		if q > best.Q || (q == best.Q && specificity > best.Specificity) {
+			best = acceptedMedia{Q: q, Specificity: specificity}
 		}
 	}
-	return maxQ
+	return best
 }
 
 func parseAcceptPart(part string) (string, float64) {

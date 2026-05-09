@@ -132,8 +132,8 @@ func TestBuildRecallsCollectionQueryCombinesSearchAndFilters(t *testing.T) {
 		"zone_geographique_de_vente = $3",
 		"risques_encourus || '|') ILIKE '%' || '|' || $4 || '|' || '%'",
 		"marque_produit = $5",
-		"date_publication >= $6",
-		"date_publication < $7",
+		"recalls.date_publication >= $6",
+		"recalls.date_publication < $7",
 		"LIMIT $8 OFFSET $9",
 	} {
 		if !strings.Contains(query, fragment) {

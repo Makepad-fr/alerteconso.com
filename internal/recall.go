@@ -573,7 +573,7 @@ func buildRecallsCollectionQuery(limit, offset int, q, category, zone, risk, bra
 		argIdx++
 	}
 	if dateStart.Valid {
-		query += ` AND date_publication >= $` + strconv.Itoa(argIdx)
+		query += ` AND recalls.date_publication >= $` + strconv.Itoa(argIdx)
 		args = append(args, dateStart.Time)
 		argIdx++
 	}
@@ -582,7 +582,7 @@ func buildRecallsCollectionQuery(limit, offset int, q, category, zone, risk, bra
 		if dateEnd.Exclusive {
 			operator = "<"
 		}
-		query += ` AND date_publication ` + operator + ` $` + strconv.Itoa(argIdx)
+		query += ` AND recalls.date_publication ` + operator + ` $` + strconv.Itoa(argIdx)
 		args = append(args, dateEnd.Time)
 		argIdx++
 	}

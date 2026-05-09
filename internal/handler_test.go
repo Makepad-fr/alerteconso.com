@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -29,6 +30,70 @@ func mapQuery(key, value string) url.Values {
 	values := url.Values{}
 	values.Set(key, value)
 	return values
+}
+
+func TestRootHandlerReturnsJSONEntryPointLinks(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	RootHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+	if got := rr.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
+		t.Fatalf("expected JSON content type, got %q", got)
+	}
+
+	var body struct {
+		Links []Link `json:"_links"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	got := map[string]string{}
+	for _, link := range body.Links {
+		got[link.Rel] = link.Href
+	}
+	for rel, href := range map[string]string{
+		"self":              "/",
+		"recalls":           "/recalls",
+		"recall-filters":    "/recalls/filters",
+		"recall-categories": "/recalls/categories",
+		"recall-risks":      "/recalls/risks",
+		"recall-zones":      "/recalls/zones",
+		"recall-brands":     "/recalls/brands",
+	} {
+		if got[rel] != href {
+			t.Fatalf("expected %s link %q, got %q", rel, href, got[rel])
+		}
+	}
+}
+
+func TestRootHandlerRejectsNonRootPath(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/recalls", nil)
+
+	RootHandler(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", rr.Code)
+	}
+}
+
+func TestRootHandlerRejectsNonGetMethod(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+
+	RootHandler(rr, req)
+
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected status 405, got %d", rr.Code)
+	}
+	if got := rr.Header().Get("Allow"); got != "GET, HEAD" {
+		t.Fatalf("expected Allow header %q, got %q", "GET, HEAD", got)
+	}
 }
 
 func TestCollectionLinks(t *testing.T) {

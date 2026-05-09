@@ -36,7 +36,10 @@ func GetRecallByID(id int) (Recall, error) {
 	err := DB.QueryRow(`
 		SELECT
 			id,
+			rappel_guid,
 			numero_fiche,
+			numero_version,
+			nature_juridique_rappel,
 			categorie_produit,
 			sous_categorie_produit,
 			marque_produit,
@@ -65,13 +68,16 @@ func GetRecallByID(id int) (Recall, error) {
 			lien_vers_la_liste_des_distributeurs,
 			lien_vers_affichette_pdf,
 			lien_vers_la_fiche_rappel,
-			date_publication,
+			`+datePublicationRFC3339SQL+` AS date_publication,
 			libelle
 		FROM recalls
 		WHERE id = $1
 	`, id).Scan(
 		&r.ID,
+		&r.RappelGUID,
 		&r.NumeroFiche,
+		&r.NumeroVersion,
+		&r.NatureJuridiqueRappel,
 		&r.CategorieProduit,
 		&r.SousCategorieProduit,
 		&r.MarqueProduit,

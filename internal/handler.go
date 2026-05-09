@@ -1,74 +1,132 @@
 package internal
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
-	"text/template"
 )
 
-func RecallsHandler(w http.ResponseWriter, r *http.Request) {
-	page := getQueryInt(r, "page", 1)
-	pageSize := getQueryInt(r, "pageSize", 20)
+const maxRecallPageSize = 100
 
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	category := r.URL.Query().Get("category")
-	zone := r.URL.Query().Get("zone")
-	brand := r.URL.Query().Get("brand")
-	risk := r.URL.Query().Get("risk")
-	dateStart := r.URL.Query().Get("dateStart")
-	dateEnd := r.URL.Query().Get("dateEnd")
-
-	var (
-		recalls []Recall
-		err     error
-	)
-	if q != "" {
-		recalls, err = SearchRecalls(page, pageSize, q)
-	} else {
-		recalls, err = GetPaginatedRecallsFiltered(page, pageSize, category, zone, risk, brand, dateStart, dateEnd)
+func RootHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
 	}
-	if err != nil {
-		http.Error(w, "Failed to fetch recalls: "+err.Error(), http.StatusInternalServerError)
+	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
 
-	// Attach links if you want to keep that behavior
-	for i := range recalls {
-		recalls[i].Links = []Link{
-			{Rel: "self", Href: fmt.Sprintf("/recalls/%d", recalls[i].ID)},
-		}
+	writeJSON(w, map[string]any{
+		"_links": []Link{
+			{Rel: "self", Href: "/"},
+			{Rel: "recalls", Href: "/recalls"},
+			{Rel: "recall-filters", Href: "/recalls/filters"},
+			{Rel: "recall-categories", Href: "/recalls/categories"},
+			{Rel: "recall-risks", Href: "/recalls/risks"},
+			{Rel: "recall-zones", Href: "/recalls/zones"},
+			{Rel: "recall-brands", Href: "/recalls/brands"},
+		},
+	}, http.StatusOK)
+}
+
+func RecallsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/recalls" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Add("Vary", "Accept")
+	if PrefersHTML(r) {
+		ListRecallsHandler(w, r)
+		return
+	}
+	RecallCollectionHandler(w, r)
+}
+
+func RecallCollectionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/recalls" {
+		http.NotFound(w, r)
+		return
+	}
+	if !requireMethod(w, r, http.MethodGet) {
+		return
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(recalls)
+	page := getQueryInt(r, "page", 1)
+	pageSize := getQueryInt(r, "pageSize", 20)
+	if pageSize > maxRecallPageSize {
+		http.Error(w, fmt.Sprintf("pageSize must be less than or equal to %d", maxRecallPageSize), http.StatusBadRequest)
+		return
+	}
+
+	recalls, err := getRecallsFromRequestWithLimit(r, page, pageSize, pageSize+1)
+	if err != nil {
+		writeRecallsError(w, err)
+		return
+	}
+
+	hasNext := len(recalls) > pageSize
+	if hasNext {
+		recalls = recalls[:pageSize]
+	}
+
+	summaries := recallSummaries(recalls)
+
+	links := collectionLinks("/recalls", r.URL.Query(), page, pageSize, hasNext)
+	writeLinkHeader(w, links)
+	writeJSON(w, RecallListResponse{
+		Data: summaries,
+		Page: PageMeta{
+			Page:     page,
+			PageSize: pageSize,
+			Count:    len(summaries),
+		},
+		Links: links,
+	}, http.StatusOK)
 }
 
 func RecallDetailHandler(w http.ResponseWriter, r *http.Request) {
-	idStr := strings.TrimPrefix(r.URL.Path, "/recall/")
+	if redirectPath, ok := canonicalRecallPath(r.URL.Path); ok {
+		if r.URL.RawQuery != "" {
+			redirectPath += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, redirectPath, http.StatusPermanentRedirect)
+		return
+	}
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+
+	idStr := recallIDFromPath(r.URL.Path)
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "invalid recall ID", http.StatusBadRequest)
+		http.NotFound(w, r)
 		return
 	}
 
 	recall, err := GetRecallByID(id)
 	if err != nil {
-		http.Error(w, "recall not found", http.StatusNotFound)
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "recall not found", http.StatusNotFound)
+			return
+		}
+		log.Printf("failed to load recall %d: %v", id, err)
+		http.Error(w, "failed to load recall", http.StatusInternalServerError)
 		return
 	}
 
 	// Attach HATEOAS links directly
-	recall.Links = []Link{
-		{Rel: "self", Href: fmt.Sprintf("/recall/%d", recall.ID)},
-		{Rel: "collection", Href: "/recalls"},
-	}
+	attachRecallLinks(&recall)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(recall) // ✅ just the Recall object
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(recall)
 }
 
 // Health check: just confirm server is alive
@@ -91,16 +149,6 @@ func ReadyzHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ready"))
-}
-func RecallsHTMLOrJSONHandler(w http.ResponseWriter, r *http.Request) {
-	accept := r.Header.Get("Accept")
-
-	if strings.Contains(accept, "application/json") {
-		RecallsHandler(w, r)
-		return
-	}
-
-	ListRecallsHandler(w, r)
 }
 
 func FetchAndUpsertHandler(w http.ResponseWriter, r *http.Request) {
@@ -128,10 +176,20 @@ func FetchAndUpsertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
 	pageStr := r.URL.Query().Get("page")
 	page := 1
 	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
 		page = p
+	}
+	pageSize := getQueryInt(r, "pageSize", 20)
+	if pageSize > maxRecallPageSize {
+		http.Error(w, fmt.Sprintf("pageSize must be less than or equal to %d", maxRecallPageSize), http.StatusBadRequest)
+		return
 	}
 
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -142,19 +200,16 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 	dateStart := r.URL.Query().Get("dateStart")
 	dateEnd := r.URL.Query().Get("dateEnd")
 
-	var (
-		recalls []Recall
-		err     error
-	)
-	if q != "" {
-		recalls, err = SearchRecalls(page, 20, q)
-	} else {
-		recalls, err = GetPaginatedRecallsFiltered(page, 20, category, zone, risk, brand, dateStart, dateEnd)
-	}
+	recalls, err := getRecallsFromRequestWithLimit(r, page, pageSize, pageSize+1)
 	if err != nil {
-		http.Error(w, "Error loading recalls", http.StatusInternalServerError)
+		writeRecallsError(w, err)
 		return
 	}
+	hasNext := len(recalls) > pageSize
+	if hasNext {
+		recalls = recalls[:pageSize]
+	}
+	prevURL, nextURL := paginationURLs("/recalls", r.URL.Query(), page, pageSize, hasNext)
 	// for dropdowns
 	categories, err := GetAllCategories()
 	if err != nil {
@@ -200,6 +255,11 @@ func ListRecallsHandler(w http.ResponseWriter, r *http.Request) {
 		DateEnd:          dateEnd,
 		Query:            q,
 		Page:             page,
+		PageSize:         pageSize,
+		HasPrev:          page > 1,
+		HasNext:          hasNext,
+		PrevURL:          prevURL,
+		NextURL:          nextURL,
 	}
 
 	err = tmpl.Execute(w, data)
@@ -217,6 +277,10 @@ func writeJSON(w http.ResponseWriter, v any, status int) {
 }
 
 func CategoriesHandler(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+
 	cats, err := GetAllCategories()
 	if err != nil {
 		http.Error(w, "failed to load categories: "+err.Error(), http.StatusInternalServerError)
@@ -225,10 +289,18 @@ func CategoriesHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"data":  cats,
 		"count": len(cats),
+		"_links": []Link{
+			{Rel: "self", Href: r.URL.Path},
+			{Rel: "recalls", Href: "/recalls"},
+		},
 	}, http.StatusOK)
 }
 
 func RisksHandler(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+
 	risks, err := GetAllRisks()
 	if err != nil {
 		http.Error(w, "failed to load risks: "+err.Error(), http.StatusInternalServerError)
@@ -237,10 +309,18 @@ func RisksHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"data":  risks,
 		"count": len(risks),
+		"_links": []Link{
+			{Rel: "self", Href: r.URL.Path},
+			{Rel: "recalls", Href: "/recalls"},
+		},
 	}, http.StatusOK)
 }
 
 func ZonesHandler(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+
 	zones, err := GetAllZones()
 	if err != nil {
 		http.Error(w, "failed to load zones: "+err.Error(), http.StatusInternalServerError)
@@ -249,10 +329,18 @@ func ZonesHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"data":  zones,
 		"count": len(zones),
+		"_links": []Link{
+			{Rel: "self", Href: r.URL.Path},
+			{Rel: "recalls", Href: "/recalls"},
+		},
 	}, http.StatusOK)
 }
 
 func BrandsHandler(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+
 	brands, err := GetAllBrands()
 	if err != nil {
 		http.Error(w, "failed to load brands: "+err.Error(), http.StatusInternalServerError)
@@ -261,20 +349,288 @@ func BrandsHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"data":  brands,
 		"count": len(brands),
+		"_links": []Link{
+			{Rel: "self", Href: r.URL.Path},
+			{Rel: "recalls", Href: "/recalls"},
+		},
 	}, http.StatusOK)
 }
 
 // Optional: one-shot endpoint to fetch all filters in one request
 func FiltersHandler(w http.ResponseWriter, r *http.Request) {
-	cats, _ := GetAllCategories()
-	risks, _ := GetAllRisks()
-	zones, _ := GetAllZones()
-	brands, _ := GetAllBrands()
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+
+	cats, err := GetAllCategories()
+	if err != nil {
+		http.Error(w, "failed to load categories: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	risks, err := GetAllRisks()
+	if err != nil {
+		http.Error(w, "failed to load risks: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	zones, err := GetAllZones()
+	if err != nil {
+		http.Error(w, "failed to load zones: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	brands, err := GetAllBrands()
+	if err != nil {
+		http.Error(w, "failed to load brands: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	writeJSON(w, map[string]any{
 		"categories": cats,
 		"risks":      risks,
 		"zones":      zones,
 		"brands":     brands,
+		"_links": []Link{
+			{Rel: "self", Href: r.URL.Path},
+			{Rel: "recalls", Href: "/recalls"},
+			{Rel: "recall-categories", Href: "/recalls/categories"},
+			{Rel: "recall-risks", Href: "/recalls/risks"},
+			{Rel: "recall-zones", Href: "/recalls/zones"},
+			{Rel: "recall-brands", Href: "/recalls/brands"},
+		},
 	}, http.StatusOK)
+}
+
+func getRecallsFromRequestWithLimit(r *http.Request, page, pageSize, limit int) ([]Recall, error) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	category := r.URL.Query().Get("category")
+	zone := r.URL.Query().Get("zone")
+	brand := r.URL.Query().Get("brand")
+	risk := r.URL.Query().Get("risk")
+	dateStart := r.URL.Query().Get("dateStart")
+	dateEnd := r.URL.Query().Get("dateEnd")
+	dateStartFilter, dateEndFilter, err := normalizeDateFilters(dateStart, dateEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetPaginatedRecallsFilteredWithSearchWithLimit(page, pageSize, limit, q, category, zone, risk, brand, dateStartFilter, dateEndFilter)
+}
+
+type requestValidationError string
+
+func (e requestValidationError) Error() string {
+	return string(e)
+}
+
+func writeRecallsError(w http.ResponseWriter, err error) {
+	var validationErr requestValidationError
+	if errors.As(err, &validationErr) {
+		http.Error(w, validationErr.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Printf("failed to fetch recalls: %v", err)
+	http.Error(w, "Failed to fetch recalls", http.StatusInternalServerError)
+}
+
+func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
+	if r.Method == method || (method == http.MethodGet && r.Method == http.MethodHead) {
+		return true
+	}
+	allow := method
+	if method == http.MethodGet {
+		allow = "GET, HEAD"
+	}
+	w.Header().Set("Allow", allow)
+	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	return false
+}
+
+func PrefersHTML(r *http.Request) bool {
+	accept := r.Header.Get("Accept")
+	if accept == "" {
+		return false
+	}
+	html := acceptedQuality(accept, "text/html")
+	json := acceptedQuality(accept, "application/json")
+	if html.Q != json.Q {
+		return html.Q > json.Q
+	}
+	return html.Specificity > json.Specificity
+}
+
+type acceptedMedia struct {
+	Q           float64
+	Specificity int
+}
+
+func acceptedQuality(accept, target string) acceptedMedia {
+	best := acceptedMedia{}
+	targetType, _, _ := strings.Cut(target, "/")
+	for _, part := range strings.Split(accept, ",") {
+		mediaRange, q := parseAcceptPart(part)
+		if mediaRange == "" {
+			continue
+		}
+		specificity := -1
+		switch mediaRange {
+		case target:
+			specificity = 2
+		case targetType + "/*":
+			specificity = 1
+		case "*/*":
+			specificity = 0
+		}
+		if specificity == -1 {
+			continue
+		}
+		if q > best.Q || (q == best.Q && specificity > best.Specificity) {
+			best = acceptedMedia{Q: q, Specificity: specificity}
+		}
+	}
+	return best
+}
+
+func parseAcceptPart(part string) (string, float64) {
+	q := 1.0
+	pieces := strings.Split(part, ";")
+	mediaRange := strings.ToLower(strings.TrimSpace(pieces[0]))
+	for _, param := range pieces[1:] {
+		key, value, ok := strings.Cut(strings.TrimSpace(param), "=")
+		if !ok || !strings.EqualFold(strings.TrimSpace(key), "q") {
+			continue
+		}
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if err != nil || parsed < 0 || parsed > 1 {
+			return mediaRange, 0
+		}
+		q = parsed
+	}
+	return mediaRange, q
+}
+
+func recallIDFromPath(path string) string {
+	const prefix = "/recalls/"
+	if strings.HasPrefix(path, prefix) {
+		return strings.TrimPrefix(path, prefix)
+	}
+	return ""
+}
+
+func canonicalRecallPath(path string) (string, bool) {
+	if path == "/recalls/" {
+		return "/recalls", true
+	}
+	if strings.HasPrefix(path, "/recalls/") && strings.HasSuffix(path, "/") {
+		return strings.TrimRight(path, "/"), true
+	}
+	return "", false
+}
+
+func attachRecallLinks(recall *Recall) {
+	links := FlexibleLinks{
+		{Rel: "self", Href: fmt.Sprintf("/recalls/%d", recall.ID)},
+		{Rel: "collection", Href: "/recalls"},
+	}
+	if recall.LienVersLaFicheRappel != "" {
+		links = append(links, Link{Rel: "official", Href: recall.LienVersLaFicheRappel})
+	}
+	if recall.LienVersAffichettePDF != "" {
+		links = append(links, Link{Rel: "pdf", Href: recall.LienVersAffichettePDF})
+	}
+	recall.Links = links
+}
+
+func recallSummaries(recalls []Recall) []RecallSummary {
+	summaries := make([]RecallSummary, 0, len(recalls))
+	for _, recall := range recalls {
+		summary := RecallSummary{
+			ID:                       recall.ID,
+			NumeroFiche:              recall.NumeroFiche,
+			CategorieProduit:         recall.CategorieProduit,
+			SousCategorieProduit:     recall.SousCategorieProduit,
+			MarqueProduit:            recall.MarqueProduit,
+			RisquesEncourus:          recall.RisquesEncourus,
+			MotifRappel:              recall.MotifRappel,
+			PreconisationsSanitaires: recall.PreconisationsSanitaires,
+			NumeroContact:            recall.NumeroContact,
+			Distributeurs:            recall.Distributeurs,
+			ModalitesDeCompensation:  recall.ModalitesDeCompensation,
+			ZoneGeographiqueDeVente:  recall.ZoneGeographiqueDeVente,
+			LiensVersLesImagesRaw:    recall.LiensVersLesImagesRaw,
+			LienVersAffichettePDF:    recall.LienVersAffichettePDF,
+			LienVersLaFicheRappel:    recall.LienVersLaFicheRappel,
+			DatePublication:          recall.DatePublication,
+			Libelle:                  recall.Libelle,
+		}
+		attachRecallSummaryLinks(&summary)
+		summaries = append(summaries, summary)
+	}
+	return summaries
+}
+
+func attachRecallSummaryLinks(recall *RecallSummary) {
+	links := FlexibleLinks{
+		{Rel: "self", Href: fmt.Sprintf("/recalls/%d", recall.ID)},
+		{Rel: "collection", Href: "/recalls"},
+	}
+	if recall.LienVersLaFicheRappel != "" {
+		links = append(links, Link{Rel: "official", Href: recall.LienVersLaFicheRappel})
+	}
+	if recall.LienVersAffichettePDF != "" {
+		links = append(links, Link{Rel: "pdf", Href: recall.LienVersAffichettePDF})
+	}
+	recall.Links = links
+}
+
+func collectionLinks(path string, query url.Values, page, pageSize int, hasNext bool) []Link {
+	links := []Link{
+		{Rel: "self", Href: paginatedURL(path, query, page, pageSize)},
+		{Rel: "first", Href: paginatedURL(path, query, 1, pageSize)},
+	}
+	if page > 1 {
+		links = append(links, Link{Rel: "prev", Href: paginatedURL(path, query, page-1, pageSize)})
+	}
+	if hasNext {
+		links = append(links, Link{Rel: "next", Href: paginatedURL(path, query, page+1, pageSize)})
+	}
+	return links
+}
+
+func paginationURLs(path string, query url.Values, page, pageSize int, hasNext bool) (string, string) {
+	prevURL := ""
+	if page > 1 {
+		prevURL = paginatedURL(path, query, page-1, pageSize)
+	}
+
+	nextURL := ""
+	if hasNext {
+		nextURL = paginatedURL(path, query, page+1, pageSize)
+	}
+
+	return prevURL, nextURL
+}
+
+func writeLinkHeader(w http.ResponseWriter, links []Link) {
+	parts := make([]string, 0)
+	for _, link := range links {
+		parts = append(parts, fmt.Sprintf("<%s>; rel=%q", link.Href, link.Rel))
+	}
+	w.Header().Set("Link", strings.Join(parts, ", "))
+}
+
+func paginatedURL(path string, query url.Values, page, pageSize int) string {
+	values := url.Values{}
+	for key, vals := range query {
+		for _, value := range vals {
+			values.Add(key, value)
+		}
+	}
+	values.Set("page", strconv.Itoa(page))
+	values.Set("pageSize", strconv.Itoa(pageSize))
+	if encoded := values.Encode(); encoded != "" {
+		return path + "?" + encoded
+	}
+	return path
 }

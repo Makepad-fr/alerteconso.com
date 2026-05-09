@@ -41,10 +41,26 @@ func main() {
 		port = "8080"
 	}
 
-	http.HandleFunc("/recall/", internal.RecallDetailHandler)
+	http.HandleFunc("/recalls/categories", internal.CategoriesHandler)
+	http.HandleFunc("/recalls/risks", internal.RisksHandler)
+	http.HandleFunc("/recalls/zones", internal.ZonesHandler)
+	http.HandleFunc("/recalls/brands", internal.BrandsHandler)
+	http.HandleFunc("/recalls/filters", internal.FiltersHandler)
+	http.HandleFunc("/recalls/", internal.RecallDetailHandler)
+	http.HandleFunc("/recalls", internal.RecallsHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
+			return
+		}
+		w.Header().Add("Vary", "Accept")
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if !internal.PrefersHTML(r) {
+			internal.RootHandler(w, r)
 			return
 		}
 		// If filters/search are submitted to '/', redirect to '/recalls' keeping the query string
@@ -60,16 +76,8 @@ func main() {
 		w.Header().Set("Content-Type", "image/png")
 		_, _ = w.Write(logoPNG)
 	})
-	http.HandleFunc("/recalls", internal.RecallsHTMLOrJSONHandler)
 	http.HandleFunc("/healthz", internal.HealthzHandler)
 	http.HandleFunc("/readyz", internal.ReadyzHandler)
-	http.HandleFunc("/categories", internal.CategoriesHandler)
-	http.HandleFunc("/risks", internal.RisksHandler)
-	http.HandleFunc("/zones", internal.ZonesHandler) // or /locations
-	http.HandleFunc("/brands", internal.BrandsHandler)
-
-	// optional all-in-one
-	http.HandleFunc("/filters", internal.FiltersHandler)
 	fmt.Printf("Listening on http://0.0.0.0:%s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

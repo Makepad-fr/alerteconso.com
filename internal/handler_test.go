@@ -1,25 +1,333 @@
 package internal
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 )
 
 // Optionally, mock FetchRecalls for the handler test
 // net/http/httptest is used to simulate real HTTP requests without a running server
 
-func TestRecallsHandler_StatusOK(t *testing.T) {
+func TestRecallCollectionHandlerStatusOK(t *testing.T) {
 	// ✅ Setup DB connection (same as your main.go)
-	InitDB("postgres://rappeluser:rappelpass@localhost:5432/rappeldb?sslmode=disable")
+	InitDB(testDatabaseURL(t))
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/recalls", nil)
 
-	// 🧪 This will call FetchRecalls() and UpsertRecall() internally
-	RecallsHandler(rr, req)
+	RecallCollectionHandler(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+}
+
+func mapQuery(key, value string) url.Values {
+	values := url.Values{}
+	values.Set(key, value)
+	return values
+}
+
+func TestRootHandlerReturnsJSONEntryPointLinks(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	RootHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+	if got := rr.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
+		t.Fatalf("expected JSON content type, got %q", got)
+	}
+
+	var body struct {
+		Links []Link `json:"_links"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	got := map[string]string{}
+	for _, link := range body.Links {
+		got[link.Rel] = link.Href
+	}
+	for rel, href := range map[string]string{
+		"self":              "/",
+		"recalls":           "/recalls",
+		"recall-filters":    "/recalls/filters",
+		"recall-categories": "/recalls/categories",
+		"recall-risks":      "/recalls/risks",
+		"recall-zones":      "/recalls/zones",
+		"recall-brands":     "/recalls/brands",
+	} {
+		if got[rel] != href {
+			t.Fatalf("expected %s link %q, got %q", rel, href, got[rel])
+		}
+	}
+}
+
+func TestRootHandlerRejectsNonRootPath(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/recalls", nil)
+
+	RootHandler(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", rr.Code)
+	}
+}
+
+func TestRootHandlerRejectsNonGetMethod(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+
+	RootHandler(rr, req)
+
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected status 405, got %d", rr.Code)
+	}
+	if got := rr.Header().Get("Allow"); got != "GET, HEAD" {
+		t.Fatalf("expected Allow header %q, got %q", "GET, HEAD", got)
+	}
+}
+
+func TestCollectionLinks(t *testing.T) {
+	query := mapQuery("q", "fromage")
+	links := collectionLinks("/recalls", query, 2, 20, true)
+
+	want := map[string]string{
+		"self":  "/recalls?page=2&pageSize=20&q=fromage",
+		"first": "/recalls?page=1&pageSize=20&q=fromage",
+		"prev":  "/recalls?page=1&pageSize=20&q=fromage",
+		"next":  "/recalls?page=3&pageSize=20&q=fromage",
+	}
+	for _, link := range links {
+		if expected, ok := want[link.Rel]; ok && link.Href != expected {
+			t.Fatalf("expected %s link %q, got %q", link.Rel, expected, link.Href)
+		}
+		delete(want, link.Rel)
+	}
+	if len(want) > 0 {
+		t.Fatalf("missing links: %#v", want)
+	}
+}
+
+func TestCollectionLinksOmitsNextWhenThereIsNoNextPage(t *testing.T) {
+	links := collectionLinks("/recalls", url.Values{}, 1, 20, false)
+	for _, link := range links {
+		if link.Rel == "next" {
+			t.Fatalf("expected no next link, got %q", link.Href)
+		}
+	}
+}
+
+func TestRecallsHandlerSetsVaryAccept(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/recalls", nil)
+
+	RecallsHandler(rr, req)
+
+	if got := rr.Header().Get("Vary"); got != "Accept" {
+		t.Fatalf("expected Vary header %q, got %q", "Accept", got)
+	}
+}
+
+func TestPaginationURLsOnlySetAvailableLinks(t *testing.T) {
+	prevURL, nextURL := paginationURLs("/recalls", mapQuery("q", "fromage"), 1, 20, false)
+	if prevURL != "" {
+		t.Fatalf("expected no previous URL on the first page, got %q", prevURL)
+	}
+	if nextURL != "" {
+		t.Fatalf("expected no next URL without another page, got %q", nextURL)
+	}
+
+	prevURL, nextURL = paginationURLs("/recalls", mapQuery("q", "fromage"), 2, 20, true)
+	if prevURL != "/recalls?page=1&pageSize=20&q=fromage" {
+		t.Fatalf("expected previous URL with preserved query, got %q", prevURL)
+	}
+	if nextURL != "/recalls?page=3&pageSize=20&q=fromage" {
+		t.Fatalf("expected next URL with preserved query, got %q", nextURL)
+	}
+}
+
+func TestRecallCollectionHandlerRejectsOversizedPageSize(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/recalls?pageSize=101", nil)
+
+	RecallCollectionHandler(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", rr.Code)
+	}
+}
+
+func TestListRecallsHandlerRejectsOversizedPageSize(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/recalls?pageSize=101", nil)
+
+	ListRecallsHandler(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", rr.Code)
+	}
+}
+
+func TestAttachRecallLinks(t *testing.T) {
+	recall := Recall{
+		ID:                       123,
+		LienVersLaFicheRappel:    "https://rappel.conso.gouv.fr/fiche-rappel/123/interne",
+		LienVersAffichettePDF:    "https://rappel.conso.gouv.fr/affichettepdf/123/interne",
+		IdentificationProduits:   "lot-a",
+		LiensVersLesImagesRaw:    "",
+		DatePublication:          "2026-05-08T00:00:00Z",
+		NumeroFiche:              "2026-05-0001",
+		CategorieProduit:         "alimentation",
+		SousCategorieProduit:     "fromage",
+		MarqueProduit:            "test",
+		ModelesOuReferences:      "ref",
+		RisquesEncourus:          "listeria",
+		MotifRappel:              "test",
+		PreconisationsSanitaires: "test",
+	}
+	attachRecallLinks(&recall)
+
+	got := map[string]string{}
+	for _, link := range recall.Links {
+		got[link.Rel] = link.Href
+	}
+	for rel, href := range map[string]string{
+		"self":       "/recalls/123",
+		"collection": "/recalls",
+		"official":   "https://rappel.conso.gouv.fr/fiche-rappel/123/interne",
+		"pdf":        "https://rappel.conso.gouv.fr/affichettepdf/123/interne",
+	} {
+		if got[rel] != href {
+			t.Fatalf("expected %s link %q, got %q", rel, href, got[rel])
+		}
+	}
+}
+
+func TestRecallSummariesAttachLinks(t *testing.T) {
+	summaries := recallSummaries([]Recall{{
+		ID:                    123,
+		NumeroFiche:           "2026-05-0001",
+		LienVersLaFicheRappel: "https://rappel.conso.gouv.fr/fiche-rappel/123/interne",
+		LienVersAffichettePDF: "https://rappel.conso.gouv.fr/affichettepdf/123/interne",
+	}})
+
+	if len(summaries) != 1 {
+		t.Fatalf("expected one summary, got %d", len(summaries))
+	}
+	got := map[string]string{}
+	for _, link := range summaries[0].Links {
+		got[link.Rel] = link.Href
+	}
+	if got["self"] != "/recalls/123" || got["collection"] != "/recalls" || got["official"] == "" || got["pdf"] == "" {
+		t.Fatalf("unexpected summary links: %#v", got)
+	}
+}
+
+func TestRecallIDFromPathOnlyAcceptsCanonicalAPIPath(t *testing.T) {
+	if got := recallIDFromPath("/recalls/123"); got != "123" {
+		t.Fatalf("expected canonical recall id 123, got %q", got)
+	}
+	if got := recallIDFromPath("/recall/123"); got != "" {
+		t.Fatalf("expected noncanonical recall path to be ignored, got %q", got)
+	}
+	if got := recallIDFromPath("/api/recalls/123"); got != "" {
+		t.Fatalf("expected namespaced API path to be ignored, got %q", got)
+	}
+}
+
+func TestCanonicalRecallPath(t *testing.T) {
+	for path, expected := range map[string]string{
+		"/recalls/":            "/recalls",
+		"/recalls/123/":        "/recalls/123",
+		"/recalls/categories/": "/recalls/categories",
+	} {
+		got, ok := canonicalRecallPath(path)
+		if !ok || got != expected {
+			t.Fatalf("expected %q to canonicalize to %q, got %q with ok=%v", path, expected, got, ok)
+		}
+	}
+
+	if got, ok := canonicalRecallPath("/recalls/123"); ok {
+		t.Fatalf("expected canonical path to be unchanged, got %q", got)
+	}
+}
+
+func TestRequireMethodAllowsHeadForGetResources(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodHead, "/recalls", nil)
+	if !requireMethod(rr, req, http.MethodGet) {
+		t.Fatal("expected HEAD to be allowed for GET resource")
+	}
+}
+
+func TestValidateDateFilters(t *testing.T) {
+	if err := validateDateFilters("2026-05-01", "2026-05-08T00:00:00.123Z"); err != nil {
+		t.Fatalf("expected valid date filters, got %v", err)
+	}
+	if err := validateDateFilters("not-a-date", ""); err == nil {
+		t.Fatal("expected invalid start date to fail")
+	}
+	if err := validateDateFilters("2026-05-09", "2026-05-08"); err == nil {
+		t.Fatal("expected inverted date range to fail")
+	}
+}
+
+func TestNormalizeDateFiltersConvertsOffsetsToUTC(t *testing.T) {
+	start, end, err := normalizeDateFilters("2026-05-08T02:30:00+02:00", "2026-05-09")
+	if err != nil {
+		t.Fatalf("expected valid date filters, got %v", err)
+	}
+	if !start.Valid || start.Time.Format(time.RFC3339) != "2026-05-08T00:30:00Z" {
+		t.Fatalf("expected UTC-normalized start filter, got %#v", start)
+	}
+	if !end.Valid || !end.Exclusive || end.Time.Format(time.RFC3339) != "2026-05-10T00:00:00Z" {
+		t.Fatalf("expected UTC-normalized end filter, got %#v", end)
+	}
+}
+
+func TestPrefersHTML(t *testing.T) {
+	req := httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	if !PrefersHTML(req) {
+		t.Fatal("expected browser Accept header to prefer HTML")
+	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "application/json,text/html;q=0.9")
+	if PrefersHTML(req) {
+		t.Fatal("expected application/json to prefer JSON")
+	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "*/*")
+	if PrefersHTML(req) {
+		t.Fatal("expected wildcard Accept header to use JSON representation")
+	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "text/html, */*")
+	if !PrefersHTML(req) {
+		t.Fatal("expected explicit HTML Accept token to beat wildcard JSON match")
+	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "text/*, application/json")
+	if PrefersHTML(req) {
+		t.Fatal("expected explicit JSON Accept token to beat text wildcard match")
+	}
+
+	req = httptest.NewRequest("GET", "/recalls", nil)
+	req.Header.Set("Accept", "text/html;q=2,application/json")
+	if PrefersHTML(req) {
+		t.Fatal("expected invalid HTML q value to be ignored")
 	}
 }

@@ -2,15 +2,18 @@ package internal
 
 import (
 	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // TODO: tum db querylerini logla ve ne kadar surdugunu logla
 // fmt yerine log. kullan loglamal icin
 const RappelURL = "https://www.data.gouv.fr/api/1/datasets/r/7b212733-7f5b-4ff3-b5b2-c7fea20f9cb1"
+
+var rappelHTTPClient = &http.Client{Timeout: 45 * time.Second}
 
 type RecallPageData struct {
 	Recalls          []Recall
@@ -26,6 +29,11 @@ type RecallPageData struct {
 	DateEnd          string
 	Query            string
 	Page             int
+	PageSize         int
+	HasPrev          bool
+	HasNext          bool
+	PrevURL          string
+	NextURL          string
 }
 
 type RecallResponse struct {
@@ -37,126 +45,130 @@ type Link struct {
 	Rel  string `json:"rel"`
 	Href string `json:"href"`
 }
+
+type PageMeta struct {
+	Page     int `json:"page"`
+	PageSize int `json:"pageSize"`
+	Count    int `json:"count"`
+}
+
 type RecallListResponse struct {
-	Data  []RecallResponse `json:"data"`
-	Links []Link           `json:"_links"` // pagination
+	Data  []RecallSummary `json:"data"`
+	Page  PageMeta        `json:"page"`
+	Links []Link          `json:"_links"`
+}
+
+type RecallSummary struct {
+	ID                       int           `json:"id"`
+	NumeroFiche              string        `json:"numero_fiche"`
+	CategorieProduit         string        `json:"categorie_produit"`
+	SousCategorieProduit     string        `json:"sous_categorie_produit"`
+	MarqueProduit            string        `json:"marque_produit"`
+	RisquesEncourus          string        `json:"risques_encourus"`
+	MotifRappel              string        `json:"motif_rappel"`
+	PreconisationsSanitaires string        `json:"preconisations_sanitaires"`
+	NumeroContact            string        `json:"numero_contact"`
+	Distributeurs            string        `json:"distributeurs"`
+	ModalitesDeCompensation  string        `json:"modalites_de_compensation"`
+	ZoneGeographiqueDeVente  string        `json:"zone_geographique_de_vente"`
+	LiensVersLesImagesRaw    string        `json:"liens_vers_les_images"`
+	LienVersAffichettePDF    string        `json:"lien_vers_affichette_pdf"`
+	LienVersLaFicheRappel    string        `json:"lien_vers_la_fiche_rappel"`
+	DatePublication          string        `json:"date_publication"`
+	Libelle                  string        `json:"libelle"`
+	Links                    FlexibleLinks `json:"_links"`
 }
 
 type Recall struct {
-	ID                                   int      `json:"id"`
-	RappelGUID                           string   `json:"rappel_guid"`
-	NumeroFiche                          string   `json:"numero_fiche"`
-	NumeroVersion                        int      `json:"numero_version"`
-	NatureJuridiqueRappel                string   `json:"nature_juridique_rappel"`
-	CategorieProduit                     string   `json:"categorie_produit"`
-	SousCategorieProduit                 string   `json:"sous_categorie_produit"`
-	MarqueProduit                        string   `json:"marque_produit"`
-	ModelesOuReferences                  string   `json:"modeles_ou_references"`
-	IdentificationProduits               string   `json:"identification_produits"`
-	Conditionnements                     string   `json:"conditionnements"`
-	DateDebutCommercialisation           string   `json:"date_debut_commercialisation"`
-	DateFinCommercialisation             string   `json:"date_date_fin_commercialisation"`
-	DateLimiteDeConsommation             *string  `json:"date_limite_de_consommation"`
-	TemperatureConservation              string   `json:"temperature_conservation"`
-	MarqueSalubrite                      *string  `json:"marque_salubrite"`
-	InformationsComplementaires          string   `json:"informations_complementaires"`
-	ZoneGeographiqueDeVente              string   `json:"zone_geographique_de_vente"`
-	Distributeurs                        string   `json:"distributeurs"`
-	MotifRappel                          string   `json:"motif_rappel"`
-	RisquesEncourus                      string   `json:"risques_encourus"`
-	PreconisationsSanitaires             string   `json:"preconisations_sanitaires"`
-	DescriptionComplementaireRisque      string   `json:"description_complementaire_risque"`
-	ConduitesATenirParLeConsommateur     string   `json:"conduites_a_tenir_par_le_consommateur"`
-	NumeroContact                        string   `json:"numero_contact"`
-	ModalitesDeCompensation              string   `json:"modalites_de_compensation"`
-	DateDeFinDeLaProcedureDeRappel       string   `json:"date_de_fin_de_la_procedure_de_rappel"`
-	InformationsComplementairesPubliques string   `json:"informations_complementaires_publiques"`
-	LiensVersLesImagesRaw                string   `json:"liens_vers_les_images"` // raw JSON string from API / DB
-	ImageURLs                            []string `json:"-"`                     // parsed URLs
+	ID                                   int          `json:"id"`
+	RappelGUID                           string       `json:"rappel_guid"`
+	NumeroFiche                          string       `json:"numero_fiche"`
+	NumeroVersion                        int          `json:"numero_version"`
+	NatureJuridiqueRappel                string       `json:"nature_juridique_rappel"`
+	CategorieProduit                     string       `json:"categorie_produit"`
+	SousCategorieProduit                 string       `json:"sous_categorie_produit"`
+	MarqueProduit                        string       `json:"marque_produit"`
+	ModelesOuReferences                  string       `json:"modeles_ou_references"`
+	IdentificationProduits               FlexibleText `json:"identification_produits"`
+	Conditionnements                     string       `json:"conditionnements"`
+	DateDebutCommercialisation           string       `json:"date_debut_commercialisation"`
+	DateFinCommercialisation             string       `json:"date_date_fin_commercialisation"`
+	DateLimiteDeConsommation             *string      `json:"date_limite_de_consommation"`
+	TemperatureConservation              string       `json:"temperature_conservation"`
+	MarqueSalubrite                      *string      `json:"marque_salubrite"`
+	InformationsComplementaires          string       `json:"informations_complementaires"`
+	ZoneGeographiqueDeVente              string       `json:"zone_geographique_de_vente"`
+	Distributeurs                        string       `json:"distributeurs"`
+	MotifRappel                          string       `json:"motif_rappel"`
+	RisquesEncourus                      string       `json:"risques_encourus"`
+	PreconisationsSanitaires             string       `json:"preconisations_sanitaires"`
+	DescriptionComplementaireRisque      string       `json:"description_complementaire_risque"`
+	ConduitesATenirParLeConsommateur     string       `json:"conduites_a_tenir_par_le_consommateur"`
+	NumeroContact                        string       `json:"numero_contact"`
+	ModalitesDeCompensation              string       `json:"modalites_de_compensation"`
+	DateDeFinDeLaProcedureDeRappel       string       `json:"date_de_fin_de_la_procedure_de_rappel"`
+	InformationsComplementairesPubliques string       `json:"informations_complementaires_publiques"`
+	LiensVersLesImagesRaw                string       `json:"liens_vers_les_images"` // raw JSON string from API / DB
+	ImageURLs                            []string     `json:"-"`                     // parsed URLs
 
-	LienVersLaListeDesProduits      *string `json:"lien_vers_la_liste_des_produits"`
-	LienVersLaListeDesDistributeurs *string `json:"lien_vers_la_liste_des_distributeurs"`
-	LienVersAffichettePDF           string  `json:"lien_vers_affichette_pdf"`
-	LienVersLaFicheRappel           string  `json:"lien_vers_la_fiche_rappel"`
-	DatePublication                 string  `json:"date_publication"`
-	Libelle                         string  `json:"libelle"`
-	Links                           []Link  `json:"_links"`
+	LienVersLaListeDesProduits      *string       `json:"lien_vers_la_liste_des_produits"`
+	LienVersLaListeDesDistributeurs *string       `json:"lien_vers_la_liste_des_distributeurs"`
+	LienVersAffichettePDF           string        `json:"lien_vers_affichette_pdf"`
+	LienVersLaFicheRappel           string        `json:"lien_vers_la_fiche_rappel"`
+	DatePublication                 string        `json:"date_publication"`
+	Libelle                         string        `json:"libelle"`
+	Links                           FlexibleLinks `json:"_links"`
 }
 
 func FetchRecalls() ([]Recall, error) {
-	// http.Get() downloads the JSON file from the website
-	resp, err := http.Get(RappelURL)
+	req, err := http.NewRequest(http.MethodGet, RappelURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "alerteconso.com/1.0")
+
+	resp, err := rappelHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	// reads the whole body into memory
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("upstream returned %s", resp.Status)
+	}
+
+	var recalls []Recall
+	if err := json.NewDecoder(resp.Body).Decode(&recalls); err != nil {
 		return nil, err
 	}
 
-	// json.Unmarshal() parses the JSON into a Go slice: []Recall
-	var recalls []Recall
-	err = json.Unmarshal(body, &recalls)
-	if err != nil {
-		return nil, err
+	for i := range recalls {
+		recalls[i].ImageURLs = parseImageURLs(recalls[i].LiensVersLesImagesRaw)
 	}
+
 	return recalls, nil
 }
 
 // SearchRecalls provides a single free-text entry point over common fields.
 // It does not alter existing handlers; you can call it when a `q` param is present.
 func SearchRecalls(page, pageSize int, q string) ([]Recall, error) {
-	offset := (page - 1) * pageSize
-	q = strings.TrimSpace(q)
-	if q == "" {
-		return GetPaginatedRecalls(page, pageSize)
-	}
+	return SearchRecallsWithLimit(page, pageSize, pageSize, q)
+}
 
-	term := "%" + q + "%"
-	rows, err := DB.Query(`
-		SELECT
-			id, numero_fiche, categorie_produit, sous_categorie_produit,
-			marque_produit, risques_encourus, motif_rappel,
-			preconisations_sanitaires, numero_contact, distributeurs,
-			modalites_de_compensation, zone_geographique_de_vente,
-			lien_vers_affichette_pdf, lien_vers_la_fiche_rappel,
-			liens_vers_les_images, libelle, date_publication
-		FROM recalls
-		WHERE (
-			libelle ILIKE $1 OR
-			marque_produit ILIKE $1 OR
-			modeles_ou_references ILIKE $1 OR
-			identification_produits ILIKE $1 OR
-			numero_fiche ILIKE $1
-		)
-		ORDER BY date_publication DESC
-		LIMIT $2 OFFSET $3
-	`, term, pageSize, offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var recalls []Recall
-	for rows.Next() {
-		var r Recall
-		if err := rows.Scan(
-			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
-			&r.MarqueProduit, &r.RisquesEncourus, &r.MotifRappel,
-			&r.PreconisationsSanitaires, &r.NumeroContact, &r.Distributeurs,
-			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente,
-			&r.LienVersAffichettePDF, &r.LienVersLaFicheRappel,
-			&r.LiensVersLesImagesRaw, &r.Libelle, &r.DatePublication,
-		); err != nil {
-			return nil, err
-		}
-		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
-		recalls = append(recalls, r)
-	}
-	return recalls, nil
+func SearchRecallsWithLimit(page, pageSize, limit int, q string) ([]Recall, error) {
+	return GetPaginatedRecallsFilteredWithSearchWithLimit(
+		page,
+		pageSize,
+		limit,
+		q,
+		"",
+		"",
+		"",
+		"",
+		dateFilterBound{},
+		dateFilterBound{},
+	)
 }
 
 // for each recall, inserts into the recalls table
@@ -164,7 +176,12 @@ func SearchRecalls(page, pageSize int, q string) ([]Recall, error) {
 // Ensures that your DB is always up-to-date without duplicates
 
 func UpsertRecall(r Recall) error {
-	_, err := DB.Exec(`
+	datePublication, err := normalizeDatePublicationForDB(r.DatePublication)
+	if err != nil {
+		return err
+	}
+
+	_, err = DB.Exec(`
 		INSERT INTO recalls (
 			id, rappel_guid, numero_fiche, numero_version, nature_juridique_rappel,
 			categorie_produit, sous_categorie_produit, marque_produit, modeles_ou_references,
@@ -238,12 +255,16 @@ func UpsertRecall(r Recall) error {
 		r.NumeroContact, r.ModalitesDeCompensation, r.DateDeFinDeLaProcedureDeRappel,
 		r.InformationsComplementairesPubliques, r.LiensVersLesImagesRaw, r.LienVersLaListeDesProduits,
 		r.LienVersLaListeDesDistributeurs, r.LienVersAffichettePDF, r.LienVersLaFicheRappel,
-		r.DatePublication, r.Libelle,
+		datePublication, r.Libelle,
 	)
 	return err
 }
 
 func GetPaginatedRecalls(page int, pageSize int) ([]Recall, error) {
+	return GetPaginatedRecallsWithLimit(page, pageSize, pageSize)
+}
+
+func GetPaginatedRecallsWithLimit(page int, pageSize int, limit int) ([]Recall, error) {
 	offset := (page - 1) * pageSize
 	rows, err := DB.Query(`
 		SELECT
@@ -252,9 +273,12 @@ func GetPaginatedRecalls(page int, pageSize int) ([]Recall, error) {
 			categorie_produit,
 			sous_categorie_produit,
 			marque_produit,
+			modeles_ou_references,
+			identification_produits,
 			risques_encourus,
 			motif_rappel,
 			preconisations_sanitaires,
+			conduites_a_tenir_par_le_consommateur,
 			numero_contact,
 			distributeurs,
 			modalites_de_compensation,
@@ -263,11 +287,11 @@ func GetPaginatedRecalls(page int, pageSize int) ([]Recall, error) {
 			lien_vers_la_fiche_rappel,
 			liens_vers_les_images,
 			libelle,
-			date_publication
+			`+datePublicationRFC3339SQL+` AS date_publication
 		FROM recalls
-		ORDER BY date_publication DESC
+		ORDER BY recalls.date_publication DESC
 		LIMIT $1 OFFSET $2
-	`, pageSize, offset)
+	`, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -282,9 +306,12 @@ func GetPaginatedRecalls(page int, pageSize int) ([]Recall, error) {
 			&r.CategorieProduit,
 			&r.SousCategorieProduit,
 			&r.MarqueProduit,
+			&r.ModelesOuReferences,
+			&r.IdentificationProduits,
 			&r.RisquesEncourus,
 			&r.MotifRappel,
 			&r.PreconisationsSanitaires,
+			&r.ConduitesATenirParLeConsommateur,
 			&r.NumeroContact,
 			&r.Distributeurs,
 			&r.ModalitesDeCompensation,
@@ -301,6 +328,9 @@ func GetPaginatedRecalls(page int, pageSize int) ([]Recall, error) {
 		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
 
 		recalls = append(recalls, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return recalls, nil
@@ -325,6 +355,9 @@ func GetAllRisks() ([]string, error) {
 		}
 		risks = append(risks, risk)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return risks, nil
 }
 
@@ -345,20 +378,25 @@ func GetAllCategories() ([]string, error) {
 			categories = append(categories, cat)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return categories, nil
 }
 func GetPaginatedRecallsByCategory(page int, pageSize int, category string) ([]Recall, error) {
 	offset := (page - 1) * pageSize
 	rows, err := DB.Query(`
 		SELECT id, numero_fiche, categorie_produit, sous_categorie_produit,
-		       marque_produit, risques_encourus, motif_rappel,
-		       preconisations_sanitaires, numero_contact, distributeurs,
-		       modalites_de_compensation, lien_vers_affichette_pdf,
+		       marque_produit, modeles_ou_references, identification_produits,
+		       risques_encourus, motif_rappel,
+		       preconisations_sanitaires, conduites_a_tenir_par_le_consommateur,
+		       numero_contact, distributeurs,
+		       modalites_de_compensation, zone_geographique_de_vente, lien_vers_affichette_pdf,
 		       lien_vers_la_fiche_rappel, liens_vers_les_images, libelle,
-		       date_publication
+		       `+datePublicationRFC3339SQL+` AS date_publication
 		FROM recalls
 		WHERE categorie_produit = $1
-		ORDER BY date_publication DESC
+		ORDER BY recalls.date_publication DESC
 		LIMIT $2 OFFSET $3
 	`, category, pageSize, offset)
 
@@ -372,9 +410,11 @@ func GetPaginatedRecallsByCategory(page int, pageSize int, category string) ([]R
 		var r Recall
 		err := rows.Scan(
 			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
-			&r.MarqueProduit, &r.RisquesEncourus, &r.MotifRappel,
-			&r.PreconisationsSanitaires, &r.NumeroContact, &r.Distributeurs,
-			&r.ModalitesDeCompensation, &r.LienVersAffichettePDF,
+			&r.MarqueProduit, &r.ModelesOuReferences, &r.IdentificationProduits,
+			&r.RisquesEncourus, &r.MotifRappel,
+			&r.PreconisationsSanitaires, &r.ConduitesATenirParLeConsommateur,
+			&r.NumeroContact, &r.Distributeurs,
+			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente, &r.LienVersAffichettePDF,
 			&r.LienVersLaFicheRappel, &r.LiensVersLesImagesRaw, &r.Libelle,
 			&r.DatePublication,
 		)
@@ -384,6 +424,9 @@ func GetPaginatedRecallsByCategory(page int, pageSize int, category string) ([]R
 		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
 
 		recalls = append(recalls, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return recalls, nil
 }
@@ -403,6 +446,9 @@ func GetAllZones() ([]string, error) {
 		if zone != "" {
 			zones = append(zones, zone)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return zones, nil
 }
@@ -424,26 +470,87 @@ func GetAllBrands() ([]string, error) {
 			brands = append(brands, brand)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return brands, nil
 }
 func GetPaginatedRecallsFiltered(page, pageSize int, category, zone, risk, brand string, dateStart, dateEnd string) ([]Recall, error) {
-	offset := (page - 1) * pageSize
+	dateStartFilter, dateEndFilter, err := normalizeDateFilters(dateStart, dateEnd)
+	if err != nil {
+		return nil, err
+	}
+	return GetPaginatedRecallsFilteredWithLimit(page, pageSize, pageSize, category, zone, risk, brand, dateStartFilter, dateEndFilter)
+}
 
-	// Build dynamic query with parameters
+func GetPaginatedRecallsFilteredWithLimit(page, pageSize, limit int, category, zone, risk, brand string, dateStart, dateEnd dateFilterBound) ([]Recall, error) {
+	return GetPaginatedRecallsFilteredWithSearchWithLimit(page, pageSize, limit, "", category, zone, risk, brand, dateStart, dateEnd)
+}
+
+func GetPaginatedRecallsFilteredWithSearchWithLimit(page, pageSize, limit int, q, category, zone, risk, brand string, dateStart, dateEnd dateFilterBound) ([]Recall, error) {
+	offset := (page - 1) * pageSize
+	query, args := buildRecallsCollectionQuery(limit, offset, q, category, zone, risk, brand, dateStart, dateEnd)
+
+	rows, err := DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var recalls []Recall
+	for rows.Next() {
+		var r Recall
+		err := rows.Scan(
+			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
+			&r.MarqueProduit, &r.ModelesOuReferences, &r.IdentificationProduits,
+			&r.RisquesEncourus, &r.MotifRappel,
+			&r.PreconisationsSanitaires, &r.ConduitesATenirParLeConsommateur,
+			&r.NumeroContact, &r.Distributeurs,
+			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente,
+			&r.LienVersAffichettePDF, &r.LienVersLaFicheRappel,
+			&r.LiensVersLesImagesRaw, &r.Libelle, &r.DatePublication,
+		)
+		if err != nil {
+			return nil, err
+		}
+		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
+		recalls = append(recalls, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return recalls, nil
+}
+
+func buildRecallsCollectionQuery(limit, offset int, q, category, zone, risk, brand string, dateStart, dateEnd dateFilterBound) (string, []interface{}) {
 	query := `
 		SELECT
 			id, numero_fiche, categorie_produit, sous_categorie_produit,
-			marque_produit, risques_encourus, motif_rappel,
-			preconisations_sanitaires, numero_contact, distributeurs,
+			marque_produit, modeles_ou_references, identification_produits,
+			risques_encourus, motif_rappel,
+			preconisations_sanitaires, conduites_a_tenir_par_le_consommateur,
+			numero_contact, distributeurs,
 			modalites_de_compensation, zone_geographique_de_vente,
 			lien_vers_affichette_pdf, lien_vers_la_fiche_rappel,
-			liens_vers_les_images, libelle, date_publication
+			liens_vers_les_images, libelle, ` + datePublicationRFC3339SQL + ` AS date_publication
 		FROM recalls
 		WHERE 1=1
 	`
 	args := []interface{}{}
 	argIdx := 1
 
+	q = strings.TrimSpace(q)
+	if q != "" {
+		query += ` AND (
+			libelle ILIKE $` + strconv.Itoa(argIdx) + ` OR
+			marque_produit ILIKE $` + strconv.Itoa(argIdx) + ` OR
+			modeles_ou_references ILIKE $` + strconv.Itoa(argIdx) + ` OR
+			identification_produits ILIKE $` + strconv.Itoa(argIdx) + ` OR
+			numero_fiche ILIKE $` + strconv.Itoa(argIdx) + `
+		)`
+		args = append(args, "%"+q+"%")
+		argIdx++
+	}
 	if category != "" {
 		query += ` AND categorie_produit = $` + strconv.Itoa(argIdx)
 		args = append(args, category)
@@ -465,42 +572,23 @@ func GetPaginatedRecallsFiltered(page, pageSize int, category, zone, risk, brand
 		args = append(args, brand)
 		argIdx++
 	}
-	if dateStart != "" {
-		query += ` AND date_publication >= $` + strconv.Itoa(argIdx)
-		args = append(args, dateStart)
+	if dateStart.Valid {
+		query += ` AND recalls.date_publication >= $` + strconv.Itoa(argIdx)
+		args = append(args, dateStart.Time)
 		argIdx++
 	}
-	if dateEnd != "" {
-		query += ` AND date_publication <= $` + strconv.Itoa(argIdx)
-		args = append(args, dateEnd)
-		argIdx++
-	}
-
-	query += ` ORDER BY date_publication DESC LIMIT $` + strconv.Itoa(argIdx) + ` OFFSET $` + strconv.Itoa(argIdx+1)
-	args = append(args, pageSize, offset)
-
-	rows, err := DB.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var recalls []Recall
-	for rows.Next() {
-		var r Recall
-		err := rows.Scan(
-			&r.ID, &r.NumeroFiche, &r.CategorieProduit, &r.SousCategorieProduit,
-			&r.MarqueProduit, &r.RisquesEncourus, &r.MotifRappel,
-			&r.PreconisationsSanitaires, &r.NumeroContact, &r.Distributeurs,
-			&r.ModalitesDeCompensation, &r.ZoneGeographiqueDeVente,
-			&r.LienVersAffichettePDF, &r.LienVersLaFicheRappel,
-			&r.LiensVersLesImagesRaw, &r.Libelle, &r.DatePublication,
-		)
-		if err != nil {
-			return nil, err
+	if dateEnd.Valid {
+		operator := "<="
+		if dateEnd.Exclusive {
+			operator = "<"
 		}
-		r.ImageURLs = parseImageURLs(r.LiensVersLesImagesRaw)
-		recalls = append(recalls, r)
+		query += ` AND recalls.date_publication ` + operator + ` $` + strconv.Itoa(argIdx)
+		args = append(args, dateEnd.Time)
+		argIdx++
 	}
-	return recalls, nil
+
+	query += ` ORDER BY recalls.date_publication DESC LIMIT $` + strconv.Itoa(argIdx) + ` OFFSET $` + strconv.Itoa(argIdx+1)
+	args = append(args, limit, offset)
+
+	return query, args
 }

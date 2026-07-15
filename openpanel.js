@@ -7,6 +7,10 @@
     return;
   }
 
+  if (window.op && typeof window.op !== "function") {
+    return;
+  }
+
   window.op =
     window.op ||
     (function () {
@@ -43,6 +47,8 @@
 
   var script = document.createElement("script");
   script.src = "https://openpanel.dev/op1.js";
+  script.integrity = "sha384-kw3EvclewAunHY9YWM+Ug7tRx5vwqfKLclbn0eJCdV+AeZRWPueTW6KUh9mDJsZO";
+  script.crossOrigin = "anonymous";
   script.async = true;
   document.head.appendChild(script);
 })();

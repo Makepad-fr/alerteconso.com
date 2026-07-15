@@ -3,6 +3,9 @@
   if (host !== "alerteconso.com") {
     return;
   }
+  if (typeof Proxy !== "function") {
+    return;
+  }
 
   window.op =
     window.op ||
@@ -40,7 +43,6 @@
 
   var script = document.createElement("script");
   script.src = "https://openpanel.dev/op1.js";
-  script.defer = true;
   script.async = true;
   document.head.appendChild(script);
 })();

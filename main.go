@@ -18,6 +18,9 @@ var indexHTML []byte
 //go:embed logo.png
 var logoPNG []byte
 
+//go:embed openpanel.js
+var openpanelJS []byte
+
 func main() {
 	dbURL, err := readSecretBackedEnv("DATABASE_URL")
 	if err != nil {
@@ -75,6 +78,10 @@ func main() {
 	http.HandleFunc("/logo.png", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/png")
 		_, _ = w.Write(logoPNG)
+	})
+	http.HandleFunc("/openpanel.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		_, _ = w.Write(openpanelJS)
 	})
 	http.HandleFunc("/healthz", internal.HealthzHandler)
 	http.HandleFunc("/readyz", internal.ReadyzHandler)
